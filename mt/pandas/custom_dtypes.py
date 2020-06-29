@@ -69,5 +69,6 @@ class JsonArray(_pae.ExtensionArray):
 
     @property
     def one_plus_one(self) -> tow:
+        raise NotImplementedError
 
     # MT-TODO: work in progress
