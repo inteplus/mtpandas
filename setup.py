@@ -14,4 +14,9 @@ setup(
         'dask[dataframe]',  # for reading chunks of CSV files in parallel
         'mtbase>=0.4.0',  # Minh-Tri's base modules for logging and multi-threading
     ],
+    url='https://github.com/inteplus/mtpandas',
+    project_urls={
+        'Documentation': 'https://mtpandas.readthedocs.io/en/stable/',
+        'Source Code': 'https://github.com/inteplus/mtpandas',
+    }
 )
