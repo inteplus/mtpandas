@@ -111,7 +111,7 @@ class WordAccessor:
     
     @property
     def split_vi_tone(self):
-        '''Splits any Vietnamese toned letter into its base letter followed by a symbol representing the tone mark (`'?~.), in each word.'''
+        '''Splits any Vietnamese toned letter into its base letter followed by a symbol representing the tone mark `(`'?~.)`, in each word.'''
         return self.sub_map(self.vi_vowel_tone_inverse_map)
 
     @property
@@ -139,7 +139,7 @@ class WordAccessor:
 
     @property
     def extract_vietnamese_tone(self):
-        '''Extracts the tone marks {"`"', "'", "?", "~", "."} each Vietnamese word.'''
+        '''Extracts the tone marks `{"`"', "'", "?", "~", "."}` each Vietnamese word.'''
         
         l = "`'?~."
         rep = {v[i]:l[i] for k,v in self.vi_vowel_tones.items() for i in range(5)}
