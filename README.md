@@ -1,2 +1,2 @@
 # mtpandas
-MT's extra modules for pandas.
+Minh-Tri Pham's extra modules for pandas.
