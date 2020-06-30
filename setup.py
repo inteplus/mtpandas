@@ -16,7 +16,7 @@ setup(
     ],
     url='https://github.com/inteplus/mtpandas',
     project_urls={
-        'Documentation': 'https://mtpandas.readthedocs.io/en/stable/',
+        'Documentation': 'https://mtdoc.readthedocs.io/en/latest/mt.pandas/mt.pandas.html',
         'Source Code': 'https://github.com/inteplus/mtpandas',
     }
 )
