@@ -6,6 +6,9 @@ import json as _js
 import pandas.api.extensions as _pae
 
 
+__all__ = ['JsonAccessor']
+
+
 @_pae.register_series_accessor("json")
 class JsonAccessor:
     '''Accessor for json fields.'''

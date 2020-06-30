@@ -5,6 +5,9 @@ import pandas.api.extensions as _pae
 import re as _re
 
 
+__all__ = ['WordAccessor']
+
+
 def _construct_vi_vowel_tone_inverse_map(vi_vowel_tones, vi_vowel_tone_map):
     res = {}
     for key in vi_vowel_tones:

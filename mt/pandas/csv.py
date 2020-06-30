@@ -7,6 +7,9 @@ import json as _js
 import time as _t
 
 
+__all__ = ['metadata', 'metadata2dtypes', 'read_csv', 'to_csv']
+
+
 def metadata(df):
     '''Extracts the metadata of a dataframe.
 

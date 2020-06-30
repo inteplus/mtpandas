@@ -5,6 +5,9 @@ import numpy as _np
 import pandas as _pd
 
 
+__all__ = ['Series4json', 'json4Series', 'to_categorical']
+
+
 def Series4json(obj):
     '''Converts a json-like object in to a pandas.Series.
 

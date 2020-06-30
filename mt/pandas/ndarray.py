@@ -5,6 +5,9 @@ import numpy as _np
 import pandas.api.extensions as _pae
 
 
+__all__ = ['NdarrayAccessor']
+
+
 @_pae.register_series_accessor("ndarray")
 class NdarrayAccessor:
     '''Accessor for ndarray fields.'''
