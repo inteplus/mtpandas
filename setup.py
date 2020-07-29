@@ -10,9 +10,9 @@ setup(
     author=["Minh-Tri Pham"],
     packages=find_namespace_packages(include=['mt.*']),
     install_requires=[
-        'pandas>=0.23.0',  # for dataframes, and we need custom dtypes
+        'pandas>=1.0.3',  # for dataframes, and we need custom dtypes
         'dask[dataframe]',  # for reading chunks of CSV files in parallel
-        'mtbase>=0.4.0',  # Minh-Tri's base modules for logging and multi-threading
+        'mtbase>=0.4.8',  # Minh-Tri's base modules for logging and multi-threading
     ],
     url='https://github.com/inteplus/mtpandas',
     project_urls={
