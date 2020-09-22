@@ -5,6 +5,7 @@ import csv as _csv
 import mt.base.path as _p
 import json as _js
 import time as _t
+import zipfile as _zf
 
 
 __all__ = ['metadata', 'metadata2dtypes', 'read_csv', 'to_csv']
@@ -60,36 +61,59 @@ def metadata2dtypes(meta):
 def read_csv(path, **kwargs):
     # make sure we do not concurrently access the file
     with _p.lock(path, to_write=False):
-        # If '.meta' file exists, assume our format and therefore use dask to read. Otherwise, assume general csv file and use pandas to read.
-        path2 = path[:-4]+'.meta'
-        if not _p.exists(path2):  # no meta
-            if _p.getsize(path) >= (1 << 25):  # >= 32MB?
-                try:  # try to load in parallel using dask
-                    return _dd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs).compute()
-                except:
-                    pass
-            return _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+        if path.lower().endswith('.csv.zip'):
+            with _zf.ZipFile(path, mode='r') as myzip:
+                filename = _p.basename(path)[:-4]
 
-        # extract 'index_col' and 'dtype' from kwargs
-        index_col = kwargs.pop('index_col', None)
-        dtype = kwargs.pop('dtype', None)
+                # extract 'index_col' and 'dtype' from kwargs
+                index_col = kwargs.pop('index_col', None)
+                dtype = kwargs.pop('dtype', None)
 
-        # load the metadata
-        meta = _js.load(open(path2, 'rt')) if _p.exists(path2) else None
+                # load the metadata
+                with myzip.open(filename[:-4]+'.meta', mode='r') as f:
+                    meta = _js.load(f)
 
-        # From now on, meta takes priority over dtype. We will ignore dtype.
-        kwargs['dtype'] = 'object'
+                # From now on, meta takes priority over dtype. We will ignore dtype.
+                kwargs['dtype'] = 'object'
 
-        # update index_col if it does not exist and meta has it
-        if index_col is None and len(meta['index_names']) > 0:
-            index_col = meta['index_names']
+                # update index_col if it does not exist and meta has it
+                if index_col is None and len(meta['index_names']) > 0:
+                    index_col = meta['index_names']
 
-        # Try dask. If it fails, try pandas.
-        try:
-            df = _dd.read_csv(
-                path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs).compute()
-        except:
-            df = _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+                # Use pandas to load
+                with myzip.open(filename, mode='r', force_zip64=True) as f:
+                    df = _pd.read_csv(f, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+        else:
+            # If '.meta' file exists, assume our format and therefore use dask to read. Otherwise, assume general csv file and use pandas to read.
+            path2 = path[:-4]+'.meta'
+            if not _p.exists(path2):  # no meta
+                if _p.getsize(path) >= (1 << 25):  # >= 32MB?
+                    try:  # try to load in parallel using dask
+                        return _dd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs).compute()
+                    except:
+                        pass
+                return _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+
+            # extract 'index_col' and 'dtype' from kwargs
+            index_col = kwargs.pop('index_col', None)
+            dtype = kwargs.pop('dtype', None)
+
+            # load the metadata
+            meta = _js.load(open(path2, 'rt')) if _p.exists(path2) else None
+
+            # From now on, meta takes priority over dtype. We will ignore dtype.
+            kwargs['dtype'] = 'object'
+
+            # update index_col if it does not exist and meta has it
+            if index_col is None and len(meta['index_names']) > 0:
+                index_col = meta['index_names']
+
+            # Try dask. If it fails, try pandas.
+            try:
+                df = _dd.read_csv(
+                    path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs).compute()
+            except:
+                df = _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
 
         # adjust the returning dataframe based on the given meta
         s = meta['columns']
@@ -121,28 +145,50 @@ def read_csv(path, **kwargs):
         return df
 
 
-read_csv.__doc__ = _dd.read_csv.__doc__
+read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`dask.dataframe.read_csv` or :func:`pandas.read_csv` depending on how large the file is.\n''' + _dd.read_csv.__doc__
 
 
 def to_csv(df, path, **kwargs):
-    '''Write DataFrame to a comma-separated values (csv) file. Other than the first argument being the dataframe to be written to, the remaining arguments are passed directly to `DataFrame.to_csv()` function.\n''' + _pd.DataFrame.to_csv.__doc__
+
     # make sure we do not concurrenly access the file
     with _p.lock(path, to_write=True):
-        # write the csv file
-        path2 = path+'.tmp.csv'
-        dirpath = _p.dirname(path)
-        if dirpath:
-            _p.make_dirs(dirpath)
-        if not _p.exists(dirpath):
-            _t.sleep(1)
-        res = df.to_csv(path2, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+        if path.lower().endswith('.csv.zip'):
+            # write the csv file
+            path2 = path+'.tmp.zip'
+            dirpath = _p.dirname(path)
+            if dirpath:
+                _p.make_dirs(dirpath)
+            if not _p.exists(dirpath):
+                _t.sleep(1)
+
+            with _zf.ZipFile(path2, mode='w') as myzip:
+                filename = _p.basename(path)[:-4]
+                with myzip.open(filename, mode='w', force_zip64=True) as f: # csv
+                    data = df.to_csv(None, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+                    f.write(data.encode())
+                with myzip.open(filename[:-4]+'.meta', mode='w') as f: # meta
+                    data = _js.dumps(metadata(df))
+                    f.write(data.encode())
+                res = None
+        else:
+            # write the csv file
+            path2 = path+'.tmp.csv'
+            dirpath = _p.dirname(path)
+            if dirpath:
+                _p.make_dirs(dirpath)
+            if not _p.exists(dirpath):
+                _t.sleep(1)
+            res = df.to_csv(path2, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+
+            # write the meta file
+            path2 = path[:-4]+'.meta'
+            _js.dump(metadata(df), open(path2, 'wt'))
+
+
         _p.remove(path)
         if _p.exists(path) or not _p.exists(path2):
             _t.sleep(1)
         _p.rename(path2, path)
-
-        # write the meta file
-        path2 = path[:-4]+'.meta'
-        _js.dump(metadata(df), open(path2, 'wt'))
-
         return res
+
+to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. Other than that the first argument being the dataframe to be written to, the remaining arguments are passed directly to :func:`DataFrame.to_csv`.\n''' + _pd.DataFrame.to_csv.__doc__
