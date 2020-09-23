@@ -181,8 +181,7 @@ def to_csv(df, path, **kwargs):
             res = df.to_csv(path2, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
 
             # write the meta file
-            path2 = path[:-4]+'.meta'
-            _js.dump(metadata(df), open(path2, 'wt'))
+            _js.dump(metadata(df), open(path[:-4]+'.meta', 'wt'))
 
 
         _p.remove(path)
