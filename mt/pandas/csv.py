@@ -148,7 +148,7 @@ def read_csv(path, **kwargs):
 read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`dask.dataframe.read_csv` or :func:`pandas.read_csv` depending on how large the file is.\n''' + _dd.read_csv.__doc__
 
 
-def to_csv(df, path, **kwargs):
+def to_csv(df, path, file_mode=0o664, **kwargs):
 
     # make sure we do not concurrenly access the file
     with _p.lock(path, to_write=True):
@@ -170,6 +170,8 @@ def to_csv(df, path, **kwargs):
                     data = _js.dumps(metadata(df))
                     f.write(data.encode())
                 res = None
+            if file_mode:  # chmod
+                _p.chmod(path2, file_mode)
         else:
             # write the csv file
             path2 = path+'.tmp.csv'
@@ -179,9 +181,14 @@ def to_csv(df, path, **kwargs):
             if not _p.exists(dirpath):
                 _t.sleep(1)
             res = df.to_csv(path2, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+            if file_mode:  # chmod
+                _p.chmod(path2, file_mode)
 
             # write the meta file
-            _js.dump(metadata(df), open(path[:-4]+'.meta', 'wt'))
+            path3 = path[:-4]+'.meta'
+            _js.dump(metadata(df), open(path3, 'wt'))
+            if file_mode:  # chmod
+                _p.chmod(path3, file_mode)
 
 
         _p.remove(path)
@@ -190,4 +197,4 @@ def to_csv(df, path, **kwargs):
         _p.rename(path2, path)
         return res
 
-to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. Other than that the first argument being the dataframe to be written to, the remaining arguments are passed directly to :func:`DataFrame.to_csv`.\n''' + _pd.DataFrame.to_csv.__doc__
+to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. Other than that the first argument being the dataframe to be written to, the first keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not NOne), and the remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + _pd.DataFrame.to_csv.__doc__
