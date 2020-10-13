@@ -187,8 +187,11 @@ def to_csv(df, path, file_mode=0o664, **kwargs):
             # write the meta file
             path3 = path[:-4]+'.meta'
             _js.dump(metadata(df), open(path3, 'wt'))
-            if file_mode:  # chmod
-                _p.chmod(path3, file_mode)
+            try:
+                if file_mode:  # chmod
+                    _p.chmod(path3, file_mode)
+            except PermissionError:
+                pass # for now
 
 
         _p.remove(path)
