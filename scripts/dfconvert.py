@@ -10,7 +10,6 @@ from mt.pandas.convert import dfload, dfsave
 
 def main(args):
     df = dfload(args.in_df_filepath)
-    print(df.dtypes)
     dfsave(df, args.out_df_filepath)
 
 
