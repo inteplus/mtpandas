@@ -148,7 +148,10 @@ def read_csv(path, **kwargs):
 read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`dask.dataframe.read_csv` or :func:`pandas.read_csv` depending on how large the file is.\n''' + _dd.read_csv.__doc__
 
 
-def to_csv(df, path, file_mode=0o664, **kwargs):
+def to_csv(df, path, index='auto', file_mode=0o664, **kwargs):
+
+    if index=='auto':
+        index = bool(df.index.name)
 
     # make sure we do not concurrenly access the file
     with _p.lock(path, to_write=True):
@@ -164,7 +167,7 @@ def to_csv(df, path, file_mode=0o664, **kwargs):
             with _zf.ZipFile(path2, mode='w') as myzip:
                 filename = _p.basename(path)[:-4]
                 with myzip.open(filename, mode='w', force_zip64=True) as f: # csv
-                    data = df.to_csv(None, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+                    data = df.to_csv(None, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
                     f.write(data.encode())
                 with myzip.open(filename[:-4]+'.meta', mode='w') as f: # meta
                     data = _js.dumps(metadata(df))
@@ -180,7 +183,7 @@ def to_csv(df, path, file_mode=0o664, **kwargs):
                 _p.make_dirs(dirpath)
             if not _p.exists(dirpath):
                 _t.sleep(1)
-            res = df.to_csv(path2, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+            res = df.to_csv(path2, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
             if file_mode:  # chmod
                 _p.chmod(path2, file_mode)
 
@@ -200,4 +203,4 @@ def to_csv(df, path, file_mode=0o664, **kwargs):
         _p.rename(path2, path)
         return res
 
-to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. Other than that the first argument being the dataframe to be written to, the first keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not NOne), and the remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + _pd.DataFrame.to_csv.__doc__
+to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None), and the remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + _pd.DataFrame.to_csv.__doc__
