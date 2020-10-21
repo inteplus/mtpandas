@@ -82,7 +82,7 @@ def dfsave(df, df_filepath, file_mode=0o664, **kwargs):
         if not 'use_deprecated_int96_timestamps' in kwargs:
             kwargs = kwargs.copy()
             kwargs['use_deprecated_int96_timestamps'] = True # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
-        res = df.to_parquet(df_filepath, *args, **kwargs)
+        res = df.to_parquet(df_filepath, **kwargs)
         if file_mode:  # chmod
             _p.chmod(df_filepath, file_mode)
         return res
