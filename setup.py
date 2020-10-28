@@ -11,7 +11,7 @@ setup(
     packages=find_namespace_packages(include=['mt.*']),
     install_requires=[
         'pandas>=1.0.3',  # for dataframes, and we need custom dtypes
-        'pyarrow', # for converting to/from parquet
+        #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
         'dask[dataframe]',  # for reading chunks of CSV files in parallel
         'mtbase>=0.6.0',  # Minh-Tri's base modules for logging and multi-threading
     ],
