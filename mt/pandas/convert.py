@@ -1,9 +1,15 @@
+import numpy as _np
 import pandas as _pd
 import mt.base.path as _p
 from .csv import read_csv, to_csv
 
 
 __all__ = ['dfload', 'dfsave']
+
+
+def array2list(x):
+    '''Converts a nested numpy.ndarray object into a nested list object.'''
+    return [array2list(y) for y in x] if isinstance(x, _np.ndarray) and x.ndim == 1 else x
 
 
 def dfload(df_filepath, *args, **kwargs):
@@ -36,7 +42,11 @@ def dfload(df_filepath, *args, **kwargs):
     path = df_filepath.lower()
 
     if path.endswith('.parquet'):
-        return _pd.read_parquet(df_filepath, *args, **kwargs)
+        df = _pd.read_parquet(df_filepath, *args, **kwargs)
+        for x in df.columns:
+            if df.dtypes[x] == _np.dtype('O'): # object
+                df[x] = df[x].apply(array2list) # because Parquet would save lists into nested numpy arrays which is not we expect yet.
+        return df
 
     if path.endswith('.csv') or path.endswith('.csv.zip'):
         return read_csv(df_filepath, *args, **kwargs)
