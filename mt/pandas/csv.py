@@ -1,6 +1,7 @@
 import dask.dataframe as _dd
 import pandas as _pd
 import numpy as _np
+from tqdm import tqdm
 import csv as _csv
 import mt.base.path as _p
 import json as _js
@@ -58,11 +59,14 @@ def metadata2dtypes(meta):
     # return {x:np.dtype(y) for (x,y) in s.items()}
 
 
-def read_csv(path, **kwargs):
+def read_csv(path, show_progress=False, **kwargs):
     # make sure we do not concurrently access the file
     with _p.lock(path, to_write=False):
         if path.lower().endswith('.csv.zip'):
             with _zf.ZipFile(path, mode='r') as myzip:
+                if show_progress:
+                    bar = tqdm(total=3, unit='step')
+
                 filename = _p.basename(path)[:-4]
 
                 # extract 'index_col' and 'dtype' from kwargs
@@ -72,6 +76,8 @@ def read_csv(path, **kwargs):
                 # load the metadata
                 with myzip.open(filename[:-4]+'.meta', mode='r') as f:
                     meta = _js.load(f)
+                if show_progress:
+                    bar.update()
 
                 # From now on, meta takes priority over dtype. We will ignore dtype.
                 kwargs['dtype'] = 'object'
@@ -83,16 +89,31 @@ def read_csv(path, **kwargs):
                 # Use pandas to load
                 with myzip.open(filename, mode='r', force_zip64=True) as f:
                     df = _pd.read_csv(f, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+                if show_progress:
+                    bar.update()
         else:
             # If '.meta' file exists, assume our format and therefore use dask to read. Otherwise, assume general csv file and use pandas to read.
             path2 = path[:-4]+'.meta'
             if not _p.exists(path2):  # no meta
+                if show_progress:
+                    bar = tqdm(total=2, unit='step')
+                df = None
                 if _p.getsize(path) >= (1 << 25):  # >= 32MB?
                     try:  # try to load in parallel using dask
-                        return _dd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs).compute()
+                        df = _dd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs).compute()
                     except:
                         pass
-                return _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+                if show_progress:
+                    bar.update()
+                if not df:
+                    df = _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+                if show_progress:
+                    bar.update()
+                    bar.close()
+                return df
+
+            if show_progress:
+                bar = tqdm(total=3, unit='step')
 
             # extract 'index_col' and 'dtype' from kwargs
             index_col = kwargs.pop('index_col', None)
@@ -100,6 +121,8 @@ def read_csv(path, **kwargs):
 
             # load the metadata
             meta = _js.load(open(path2, 'rt')) if _p.exists(path2) else None
+            if show_progress:
+                bar.update()
 
             # From now on, meta takes priority over dtype. We will ignore dtype.
             kwargs['dtype'] = 'object'
@@ -114,6 +137,8 @@ def read_csv(path, **kwargs):
                     path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs).compute()
             except:
                 df = _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+            if show_progress:
+                bar.update()
 
         # adjust the returning dataframe based on the given meta
         s = meta['columns']
@@ -142,10 +167,14 @@ def read_csv(path, **kwargs):
         if index_col is not None and len(index_col) > 0:
             df = df.set_index(index_col, drop=True)
 
+        if show_progress:
+            bar.update()
+            bar.close()
+
         return df
 
 
-read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`dask.dataframe.read_csv` or :func:`pandas.read_csv` depending on how large the file is.\n''' + _dd.read_csv.__doc__
+read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`dask.dataframe.read_csv` or :func:`pandas.read_csv` depending on how large the file is.\nKeyword argument 'show_progress' tells whether to show a progress bar in the terminal.''' + _dd.read_csv.__doc__
 
 
 def to_csv(df, path, index='auto', file_mode=0o664, **kwargs):
