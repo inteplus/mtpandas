@@ -174,10 +174,13 @@ def read_csv(path, show_progress=False, **kwargs):
         return df
 
 
-read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`dask.dataframe.read_csv` or :func:`pandas.read_csv` depending on how large the file is.\nKeyword argument 'show_progress' tells whether to show a progress bar in the terminal.''' + _dd.read_csv.__doc__
+read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`dask.dataframe.read_csv` or :func:`pandas.read_csv` depending on how large the file is. Keyword argument 'show_progress' tells whether to show a progress bar in the terminal.''' + _dd.read_csv.__doc__
 
 
-def to_csv(df, path, index='auto', file_mode=0o664, **kwargs):
+def to_csv(df, path, index='auto', file_mode=0o664, show_progress=False, **kwargs):
+
+    if show_progress:
+        bar = tqdm(total=3, unit='step')
 
     if index=='auto':
         index = bool(df.index.name)
@@ -198,9 +201,13 @@ def to_csv(df, path, index='auto', file_mode=0o664, **kwargs):
                 with myzip.open(filename, mode='w', force_zip64=True) as f: # csv
                     data = df.to_csv(None, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
                     f.write(data.encode())
+                if show_progress:
+                    bar.update()
                 with myzip.open(filename[:-4]+'.meta', mode='w') as f: # meta
                     data = _js.dumps(metadata(df))
                     f.write(data.encode())
+                if show_progress:
+                    bar.update()
                 res = None
             if file_mode:  # chmod
                 _p.chmod(path2, file_mode)
@@ -215,6 +222,8 @@ def to_csv(df, path, index='auto', file_mode=0o664, **kwargs):
             res = df.to_csv(path2, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
             if file_mode:  # chmod
                 _p.chmod(path2, file_mode)
+            if show_progress:
+                bar.update()
 
             # write the meta file
             path3 = path[:-4]+'.meta'
@@ -224,12 +233,16 @@ def to_csv(df, path, index='auto', file_mode=0o664, **kwargs):
                     _p.chmod(path3, file_mode)
             except PermissionError:
                 pass # for now
-
+            if show_progress:
+                bar.update()
 
         _p.remove(path)
         if _p.exists(path) or not _p.exists(path2):
             _t.sleep(1)
         _p.rename(path2, path)
+        if show_progress:
+            bar.update()
+            bar.close()
         return res
 
-to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None), and the remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + _pd.DataFrame.to_csv.__doc__
+to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None), and the remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`. Keyword argument 'show_progress' tells whether to show a progress bar in the terminal.\n''' + _pd.DataFrame.to_csv.__doc__

@@ -64,7 +64,7 @@ def dfload(df_filepath, *args, show_progress=False, **kwargs):
     raise TypeError("Unknown file type: '{}'".format(df_filepath))
 
 
-def dfsave(df, df_filepath, file_mode=0o664, **kwargs):
+def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, **kwargs):
     '''Saves a dataframe to a file based on the file's extension.
 
     Parameters
@@ -75,6 +75,8 @@ def dfsave(df, df_filepath, file_mode=0o664, **kwargs):
         local path to an existing dataframe. The file extension is used to determine the file type.
     file_mode : int
         file mode to be set to using :func:`os.chmod`. If None is given, no setting of file mode will happen.
+    show_progress : bool
+        show a progress bar in the terminal
     kwargs : dict
         dictionary of keyword arguments to pass to the corresponding writer
 
@@ -99,16 +101,23 @@ def dfsave(df, df_filepath, file_mode=0o664, **kwargs):
     path = df_filepath.lower()
 
     if path.endswith('.parquet'):
+        if show_progress:
+            bar = tqdm(total=2, unit='step')
         if not 'use_deprecated_int96_timestamps' in kwargs:
             kwargs = kwargs.copy()
             kwargs['use_deprecated_int96_timestamps'] = True # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
+        if show_progress:
+            bar.update()
         res = df.to_parquet(df_filepath, **kwargs)
         if file_mode:  # chmod
             _p.chmod(df_filepath, file_mode)
+        if show_progress:
+            bar.update()
+            bar.close()
         return res
 
     if path.endswith('.csv') or path.endswith('.csv.zip'):
-        return to_csv(df, df_filepath, file_mode=file_mode, **kwargs)
+        return to_csv(df, df_filepath, file_mode=file_mode, show_progress=show_progress, **kwargs)
 
     raise TypeError("Unknown file type: '{}'".format(df_filepath))
 
