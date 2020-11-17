@@ -13,7 +13,7 @@ def array2list(x):
     return [array2list(y) for y in x] if isinstance(x, _np.ndarray) and x.ndim == 1 else x
 
 
-def dfload(df_filepath, *args, show_progress=False, **kwargs):
+def dfload(df_filepath, *args, show_progress=False, parquet_convert_ndarray_to_list=False, **kwargs):
     '''Loads a dataframe file based on the file's extension.
 
     Parameters
@@ -22,6 +22,8 @@ def dfload(df_filepath, *args, show_progress=False, **kwargs):
         local path to an existing dataframe. The file extension is used to determine the file type.
     show_progress : bool
         show a progress bar in the terminal
+    parquet_convert_ndarray_to_list : bool
+        whether or not to convert 1D ndarrays in the loaded parquet table into Python lists
     args : list
         list of positional arguments to pass to the corresponding reader
     kwargs : dict
@@ -46,13 +48,14 @@ def dfload(df_filepath, *args, show_progress=False, **kwargs):
 
     if path.endswith('.parquet'):
         if show_progress:
-            bar = tqdm(total=2, unit='step')
+            bar = tqdm(total=1+int(parquet_convert_ndarray_to_list), unit='step')
         df = _pd.read_parquet(df_filepath, *args, **kwargs)
-        if show_progress:
-            bar.update()
-        for x in df.columns:
-            if df.dtypes[x] == _np.dtype('O'): # object
-                df[x] = df[x].apply(array2list) # because Parquet would save lists into nested numpy arrays which is not we expect yet.
+        if parquet_convert_ndarray_to_list:
+            if show_progress:
+                bar.update()
+            for x in df.columns:
+                if df.dtypes[x] == _np.dtype('O'): # object
+                    df[x] = df[x].apply(array2list) # because Parquet would save lists into nested numpy arrays which is not we expect yet.
         if show_progress:
             bar.update()
             bar.close()
