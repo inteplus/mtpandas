@@ -37,6 +37,18 @@ class JsonAccessor:
         return self._obj.apply(lambda x: None if x is None else _np.array(x))
 
     @property
+    def from_ndarray(self):
+        '''Converts from an ndarray.'''
+        def func(x):
+            if x is None:
+                return None
+            if not isinstance(x, _np.ndarray):
+                raise AttributeError("Expected an ndarray, received an object of type '{}' instead.".format(type(x)))
+            return x.tolist()
+        return self._obj.apply(func)
+        
+
+    @property
     def to_str(self):
         '''Converts into a string series.'''
         return self._obj.apply(lambda x: None if x is None else _js.dumps(x))
