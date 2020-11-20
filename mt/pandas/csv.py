@@ -105,7 +105,7 @@ def read_csv(path, show_progress=False, **kwargs):
                         pass
                 if show_progress:
                     bar.update()
-                if not df:
+                if df is None:
                     df = _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
                 if show_progress:
                     bar.update()
