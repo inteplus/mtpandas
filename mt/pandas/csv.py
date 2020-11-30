@@ -147,7 +147,7 @@ def read_csv(path, show_progress=False, **kwargs):
             if y == 'datetime64[ns]':
                 df[x] = _pd.to_datetime(df[x])
             elif isinstance(y, list) and y[0] == 'category':
-                cat_dtype = _pd.api_types.CategoricalDtype(categories=y[1], ordered=y[2])
+                cat_dtype = _pd.api.types.CategoricalDtype(categories=y[1], ordered=y[2])
                 df[x] = df[x].astype(cat_dtype)
             elif y == 'int64':
                 df[x] = df[x].astype(_np.int64)
