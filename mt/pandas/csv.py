@@ -1,4 +1,3 @@
-import dask.dataframe as _dd
 import pandas as _pd
 import numpy as _np
 from tqdm import tqdm
@@ -92,21 +91,12 @@ def read_csv(path, show_progress=False, **kwargs):
                 if show_progress:
                     bar.update()
         else:
-            # If '.meta' file exists, assume our format and therefore use dask to read. Otherwise, assume general csv file and use pandas to read.
+            # If '.meta' file exists, assume general csv file and use pandas to read.
             path2 = path[:-4]+'.meta'
             if not _p.exists(path2):  # no meta
                 if show_progress:
-                    bar = tqdm(total=2, unit='step')
-                df = None
-                if _p.getsize(path) >= (1 << 25):  # >= 32MB?
-                    try:  # try to load in parallel using dask
-                        df = _dd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs).compute()
-                    except:
-                        pass
-                if show_progress:
-                    bar.update()
-                if df is None:
-                    df = _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+                    bar = tqdm(total=1, unit='step')
+                df = _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
                 if show_progress:
                     bar.update()
                     bar.close()
@@ -131,12 +121,7 @@ def read_csv(path, show_progress=False, **kwargs):
             if index_col is None and len(meta['index_names']) > 0:
                 index_col = meta['index_names']
 
-            # Try dask. If it fails, try pandas.
-            try:
-                df = _dd.read_csv(
-                    path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs).compute()
-            except:
-                df = _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+            df = _pd.read_csv(path, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
             if show_progress:
                 bar.update()
 
@@ -175,7 +160,7 @@ def read_csv(path, show_progress=False, **kwargs):
         return df
 
 
-read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`dask.dataframe.read_csv` or :func:`pandas.read_csv` depending on how large the file is. Keyword argument 'show_progress' tells whether to show a progress bar in the terminal.''' + _dd.read_csv.__doc__
+read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show a progress bar in the terminal.''' + _pd.read_csv.__doc__
 
 
 def to_csv(df, path, index='auto', file_mode=0o664, show_progress=False, **kwargs):
