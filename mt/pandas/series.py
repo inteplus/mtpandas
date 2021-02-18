@@ -3,9 +3,10 @@
 
 import numpy as _np
 import pandas as _pd
+from tqdm import tqdm
 
 
-__all__ = ['Series4json', 'json4Series', 'to_categorical']
+__all__ = ['Series4json', 'json4Series', 'to_categorical', 'series_apply']
 
 
 def Series4json(obj):
@@ -98,3 +99,35 @@ def to_categorical(series, value_list, missing_values='raise_exception', logger=
     df['one_hot'] = df['cat_id'].map(eye_list)
 
     return df.drop('cat', axis=1)
+
+
+def series_apply(s: _pd.Series, func, bar_unit='it') -> _pd.Series:
+    '''Applies a function on every item of a pandas.Series, optionally with a progress bar.
+
+    Parameters
+    ----------
+    s : pandas.Series
+        a series
+    func : function
+        a function to map each item of the series to something
+    bar_unit : str, optional
+        unit name to be passed to the progress bar. If None is provided, no bar is displayed.
+
+    Returns
+    -------
+    pandas.Series
+        output series by invoking `s.apply`. And a progress bar is shown if asked.
+    '''
+
+    if bar_unit is None:
+        return s.apply(func)
+
+    bar = tqdm(total=len(s), unit=bar_unit)
+
+    def func2(x):
+        res = func(x)
+        bar.update()
+        return res
+
+    with bar:
+        return s.apply(func2)
