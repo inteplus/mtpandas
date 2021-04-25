@@ -2,7 +2,7 @@
 
 
 import numpy as _np
-import json as _js
+import json
 import pandas.api.extensions as _pae
 
 
@@ -51,7 +51,7 @@ class JsonAccessor:
     @property
     def to_str(self):
         '''Converts into a string series.'''
-        return self._obj.apply(lambda x: None if x is None else _js.dumps(x))
+        return self._obj.apply(lambda x: None if x is None else json.dumps(x))
 
     @property
     def from_str(self):
@@ -61,5 +61,5 @@ class JsonAccessor:
                 return None
             if not isinstance(x, str):
                 raise AttributeError("Expected a string, received an object of type '{}' instead.".format(type(x)))
-            return _js.loads(x)
+            return json.loads(x)
         return self._obj.apply(func)

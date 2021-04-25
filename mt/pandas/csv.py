@@ -3,7 +3,7 @@ import numpy as _np
 from tqdm import tqdm
 import csv as _csv
 import mt.base.path as _p
-import json as _js
+import json
 import time as _t
 import zipfile as _zf
 
@@ -74,7 +74,7 @@ def read_csv(path, show_progress=False, **kwargs):
 
                 # load the metadata
                 with myzip.open(filename[:-4]+'.meta', mode='r') as f:
-                    meta = _js.load(f)
+                    meta = json.load(f)
                 if show_progress:
                     bar.update()
 
@@ -110,7 +110,7 @@ def read_csv(path, show_progress=False, **kwargs):
             dtype = kwargs.pop('dtype', None)
 
             # load the metadata
-            meta = _js.load(open(path2, 'rt')) if _p.exists(path2) else None
+            meta = json.load(open(path2, 'rt')) if _p.exists(path2) else None
             if show_progress:
                 bar.update()
 
@@ -190,7 +190,7 @@ def to_csv(df, path, index='auto', file_mode=0o664, show_progress=False, **kwarg
                 if show_progress:
                     bar.update()
                 with myzip.open(filename[:-4]+'.meta', mode='w') as f: # meta
-                    data = _js.dumps(metadata(df))
+                    data = json.dumps(metadata(df))
                     f.write(data.encode())
                 if show_progress:
                     bar.update()
@@ -213,7 +213,7 @@ def to_csv(df, path, index='auto', file_mode=0o664, show_progress=False, **kwarg
 
             # write the meta file
             path3 = path[:-4]+'.meta'
-            _js.dump(metadata(df), open(path3, 'wt'))
+            json.dump(metadata(df), open(path3, 'wt'))
             try:
                 if file_mode:  # chmod
                     _p.chmod(path3, file_mode)
