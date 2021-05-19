@@ -53,27 +53,21 @@ def dfload(df_filepath, *args, show_progress=False, parquet_convert_ndarray_to_l
             try:
                 df = _pd.read_parquet(df_filepath, *args, **kwargs)
 
-                if isinstance(spinner, Halo):
-                    spinner.succeed("dfloading '{}' success".format(path))
+                if parquet_convert_ndarray_to_list:
+                    for x in df.columns:
+                        if isinstance(spinner, Halo):
+                            spinner.text = 'converting column: {}'.format(x)
+                        if df.dtypes[x] == _np.dtype('O'): # object
+                            df[x] = df[x].apply(array2list) # because Parquet would save lists into nested numpy arrays which is not we expect yet.
+
+                spinner.succeed("dfloaded '{}'".format(path))
             except:
                 if isinstance(spinner, Halo):
-                    spinner.fail("dfloading '{}' failed".format(path))
+                    spinner.fail("failed to dfload '{}'".format(path))
                 raise
 
-        if parquet_convert_ndarray_to_list:
-            spinner = Halo("converting ndarray columns into list columns", spinner='dots') if show_progress else dummy_scope
-            with spinner:
-                cnt = 0
-                for x in df.columns:
-                    if isinstance(spinner, Halo):
-                        spinner.text = x
-                    if df.dtypes[x] == _np.dtype('O'): # object
-                        df[x] = df[x].apply(array2list) # because Parquet would save lists into nested numpy arrays which is not we expect yet.
-                        cnt += 1
-
-                if isinstance(spinner, Halo):
-                    spinner.succeed("converted {} ndarray columns into list columns".format(cnt))
         return df
+
 
     if path.endswith('.csv') or path.endswith('.csv.zip'):
         return read_csv(df_filepath, *args, show_progress=show_progress, **kwargs)
@@ -129,10 +123,10 @@ def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, **kwargs):
                     _p.chmod(df_filepath, file_mode)
 
                 if isinstance(spinner, Halo):
-                    spinner.succeed("dfsaving '{}' success".format(path))
+                    spinner.succeed("dfsaved '{}'".format(path))
             except:
                 if isinstance(spinner, Halo):
-                    spinner.fail("dfsaving '{}' failed".format(path))
+                    spinner.fail("failed to dfsave '{}'".format(path))
                 raise
         return res
 
