@@ -10,9 +10,10 @@ setup(
     author=["Minh-Tri Pham"],
     packages=find_namespace_packages(include=['mt.*']),
     install_requires=[
+        'halo', # for showing some spinners
         'pandas>=1.0.3',  # for dataframes, and we need custom dtypes
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
-        'mtbase>=1.1.0',  # Minh-Tri's base modules for logging and multi-threading
+        'mtbase>=1.4.3',  # Minh-Tri's base modules for logging and multi-threading
         'tqdm', # for drawing progress bars
     ],
     scripts=[
