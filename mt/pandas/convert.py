@@ -55,14 +55,15 @@ def dfload(df_filepath, *args, show_progress=False, parquet_convert_ndarray_to_l
 
                 if parquet_convert_ndarray_to_list:
                     for x in df.columns:
-                        if isinstance(spinner, Halo):
+                        if show_progress:
                             spinner.text = 'converting column: {}'.format(x)
                         if df.dtypes[x] == _np.dtype('O'): # object
                             df[x] = df[x].apply(array2list) # because Parquet would save lists into nested numpy arrays which is not we expect yet.
 
-                spinner.succeed("dfloaded '{}'".format(path))
+                if show_progress:
+                    spinner.succeed("dfloaded '{}'".format(path))
             except:
-                if isinstance(spinner, Halo):
+                if show_progress:
                     spinner.fail("failed to dfload '{}'".format(path))
                 raise
 
@@ -122,10 +123,10 @@ def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, **kwargs):
                 if file_mode:  # chmod
                     _p.chmod(df_filepath, file_mode)
 
-                if isinstance(spinner, Halo):
+                if show_progress:
                     spinner.succeed("dfsaved '{}'".format(path))
             except:
-                if isinstance(spinner, Halo):
+                if show_progress:
                     spinner.fail("failed to dfsave '{}'".format(path))
                 raise
         return res
