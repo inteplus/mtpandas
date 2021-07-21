@@ -4,11 +4,11 @@
 '''View a '.csv', '.csv.zip', '.parquet' or tab-delimited file in a spreadsheet-like display.'''
 
 import argparse
-import tempfile
+import csv
+from io import BytesIO
 from tabview.tabview import view
 
 from mt import pd
-from mt.base.with_utils import dummy_scope
 from mt.base import logger
 import mt.base.path as _p
 
@@ -25,16 +25,16 @@ def main(args):
                 df2 = df.copy() # to avoid raising a warning
             df2[key] = df[key].apply(lambda x: None if x is None else str(x))
 
-        scope = tempfile.TemporaryDirectory()
-        filepath = _p.join(scope.name, 'temp.csv')
-        pd.dfsave(df2, filepath, pack=False, show_progress=True)
+        logger.info("Converting into in-memory CSV file for tabview.")
+        filepath = BytesIO()
+        df2.to_csv(filepath, quoting=csv.QUOTE_NONNUMERIC)
+        filepath.seek(0) # to the beginning
     except:
         logger.warn_last_exception()
         filepath = args.filepath
-        scope = dummy_scope
-    with scope:
-        view(filepath, start_pos=start_pos,
-             column_width=args.width, double_width=args.double_width)
+        logger.info("Using tabview instead to load: '{}'.".format(filepath))
+    view(filepath, start_pos=start_pos,
+         column_width=args.width, double_width=args.double_width)
 
 
 def start_position(start_norm, start_classic):
