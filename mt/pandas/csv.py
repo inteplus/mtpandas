@@ -1,8 +1,9 @@
-import pandas as _pd
-import numpy as _np
+import json
+import pandas as pd
 from tqdm import tqdm
 from halo import Halo
 import csv as _csv
+from mt import np
 import mt.base.path as _p
 from mt.base.with_utils import dummy_scope, join_scopes
 import json
@@ -62,23 +63,41 @@ def metadata2dtypes(meta):
 
 def read_csv(path, show_progress=False, **kwargs):
 
+    def postprocess(df):
+        # special treatment of fields introduced by function dfpack()
+        for key in df:
+            if key.endswith('_df_nd_ravel'):
+                has_ndarray = True
+                break
+        else:
+            has_ndarray = False
+        if has_ndarray:
+            df = df.copy() # to avoid generating a warning
+            fromlist = lambda x: None if x is None else np.array(json.loads(x))
+            for key in df:
+                if key.endswith('_df_nd_ravel'):
+                    df[key] = df[key].apply(fromlist)
+                elif key.endswith('_df_nd_shape'):
+                    df[key] = df[key].apply(fromlist)
+        return df
+
     def process(path, fp1, fp2, show_progress=False, **kwargs):
 
         # do read
         if show_progress:
             bar = tqdm(unit='row')
         dfs = []
-        for df in _pd.read_csv(fp1, quoting=_csv.QUOTE_NONNUMERIC, chunksize=1024, **kwargs):
+        for df in pd.read_csv(fp1, quoting=_csv.QUOTE_NONNUMERIC, chunksize=1024, **kwargs):
             dfs.append(df)
             if show_progress:
                 bar.update(len(df))
-        df = _pd.concat(dfs, sort=False)
+        df = pd.concat(dfs, sort=False)
         if show_progress:
             bar.close()
 
         # If '.meta' file exists, assume general csv file and use pandas to read.
         if fp2 is None: # no meta
-            return df
+            return postprocess(df)
 
         spinner = Halo(text="dfloading '{}'".format(path), spinner='dots') if show_progress else dummy_scope
         with spinner:
@@ -95,7 +114,7 @@ def read_csv(path, show_progress=False, **kwargs):
                 if meta is None:
                     if show_progress:
                         spinner.succeed("dfloaded '{}' with no metadata".format(path))
-                    return df
+                    return postprocess(df)
 
                 # From now on, meta takes priority over dtype. We will ignore dtype.
                 kwargs['dtype'] = 'object'
@@ -111,20 +130,20 @@ def read_csv(path, show_progress=False, **kwargs):
                         spinner.text = "checking column '{}'".format(x)
                     y = s[x]
                     if y == 'datetime64[ns]':
-                        df[x] = _pd.to_datetime(df[x])
+                        df[x] = pd.to_datetime(df[x])
                     elif isinstance(y, list) and y[0] == 'category':
-                        cat_dtype = _pd.api.types.CategoricalDtype(categories=y[1], ordered=y[2])
+                        cat_dtype = pd.api.types.CategoricalDtype(categories=y[1], ordered=y[2])
                         df[x] = df[x].astype(cat_dtype)
                     elif y == 'int64':
-                        df[x] = df[x].astype(_np.int64)
+                        df[x] = df[x].astype(np.int64)
                     elif y == 'uint8':
-                        df[x] = df[x].astype(_np.uint8)
+                        df[x] = df[x].astype(np.uint8)
                     elif y == 'float64':
-                        df[x] = df[x].astype(_np.float64)
+                        df[x] = df[x].astype(np.float64)
                     elif y == 'bool':
                         # dd is very strict at reading a csv. It may read True as 'True' and False as 'False'.
                         df[x] = df[x].replace('True', True).replace(
-                            'False', False).astype(_np.bool)
+                            'False', False).astype(np.bool)
                     elif y == 'object':
                         pass
                     else:
@@ -141,7 +160,7 @@ def read_csv(path, show_progress=False, **kwargs):
                     spinner.succeed("failed to dfload '{}'".format(path))
                 raise
 
-        return df
+        return postprocess(df)
 
     # make sure we do not concurrently access the file
     with _p.lock(path, to_write=False):
@@ -164,10 +183,26 @@ def read_csv(path, show_progress=False, **kwargs):
                 fp2 = None
             return process(path, fp1, fp2, show_progress=show_progress, **kwargs)
 
-read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.''' + _pd.read_csv.__doc__
+read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.''' + pd.read_csv.__doc__
 
 
 def to_csv(df, path, index='auto', file_mode=0o664, show_progress=False, **kwargs):
+
+    # special treatment of fields introduced by function dfpack()
+    for key in df:
+        if key.endswith('_df_nd_ravel'):
+            has_ndarray = True
+            break
+    else:
+        has_ndarray = False
+    if has_ndarray:
+        df = df.copy() # to avoid generating a warning
+        tolist = lambda x: None if x is None else json.dumps(x.tolist())
+        for key in df:
+            if key.endswith('_df_nd_ravel'):
+                df[key] = df[key].apply(tolist)
+            elif key.endswith('_df_nd_shape'):
+                df[key] = df[key].apply(tolist)
 
     spinner = Halo(text="dfsaving '{}'".format(path), spinner='dots') if show_progress else dummy_scope
     with spinner:
@@ -241,4 +276,4 @@ def to_csv(df, path, index='auto', file_mode=0o664, show_progress=False, **kwarg
                 spinner.succeed("failed to dfsave '{}'".format(path))
             raise
 
-to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None), and the remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.\n''' + _pd.DataFrame.to_csv.__doc__
+to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None), and the remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.\n''' + pd.DataFrame.to_csv.__doc__
