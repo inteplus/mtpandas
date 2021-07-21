@@ -15,7 +15,6 @@ import mt.base.path as _p
 def main(args):
     try:
         df = pd.dfload(args.filepath, show_progress=True)
-        logger.debug(df.columns)
         copied = False
         df2 = df
         for key in df.columns:
