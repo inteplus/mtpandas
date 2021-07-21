@@ -8,13 +8,57 @@ import mt.base.path as _p
 from .csv import read_csv, to_csv
 
 
-__all__ = ['dfload', 'dfsave', 'dfpack', 'dfunpack']
+__all__ = ['dfload', 'dfsave', 'get_dftype', 'dfpack', 'dfunpack']
 
 
 def array2list(x):
     '''Converts a nested numpy.ndarray object into a nested list object.'''
     return [array2list(y) for y in x] if isinstance(x, np.ndarray) and x.ndim == 1 else x
 
+def get_dftype(s):
+    '''Detects the dftype of the series.
+
+    Determine whether a series is an ndarray series or an Image series or a normal series.
+
+    Parameters
+    ----------
+    s : pandas.Series
+        the series to investigate
+
+    Returns
+    -------
+    {'ndarray', 'Image', 'object'}
+        the type of the series
+    '''
+    if len(s) == 0:
+        return 'object'
+
+    can_be_ndarray = True
+    can_be_Image = True
+    for x in s.tolist():
+        if x is None:
+            continue
+        if isinstance(x, np.ndarray):
+            can_be_Image = False
+            if not can_be_ndarray:
+                break
+            continue
+        if isinstance(x, cv.Image):
+            can_be_ndarray = False
+            if not can_be_Image:
+                break
+            continue
+        can_be_ndarray = False
+        can_be_Image = False
+        break
+
+    if can_be_ndarray:
+        return 'ndarray'
+
+    if can_be_Image:
+        return 'Image'
+
+    return 'object'
 
 def dfpack(df, spinner=None):
     '''Packs a dataframe into a more compact format.
@@ -36,36 +80,16 @@ def dfpack(df, spinner=None):
 
     df2 = df[[]].copy() # copy the index
     for key in df.columns:
-        # determine whether a column is an ndarray column or an Image column or a normal column
-        if len(df[key]) == 0:
-            can_be_ndarray = False
-            can_be_Image = False
-        else:
-            can_be_ndarray = True
-            can_be_Image = True
-            for x in df[key].tolist():
-                if x is None:
-                    continue
-                if isinstance(x, np.ndarray):
-                    can_be_Image = False
-                    if not can_be_ndarray:
-                        break
-                    continue
-                if isinstance(x, cv.Image):
-                    can_be_ndarray = False
-                    if not can_be_Image:
-                        break
-                    continue
-                break
+        dftype = get_dftype(df[key])
 
-        if can_be_ndarray:
+        if dftype == 'ndarray':
             if spinner is not None:
                 spinner.text = "packing ndarray field '{}'".format(key)
             df2[key+'_df_nd_ravel'] = df[key].apply(lambda x: None if x is None else x.ravel())
             df2[key+'_df_nd_shape'] = df[key].apply(lambda x: None if x is None else np.array(x.shape))
             df2[key+'_df_nd_dtype'] = df[key].apply(lambda x: None if x is None else x.dtype.str)
 
-        elif can_be_Image:
+        elif dftype == 'Image':
             if spinner is not None:
                 spinner.text = "packing Image field '{}'".format(key)
             df2[key+'_df_imm'] = df[key].apply(lambda x: None if x is None else json.dumps(x.to_json()))

@@ -16,9 +16,11 @@ setup(
         'mtbase>=1.4.6',  # Minh-Tri's base modules for logging and multi-threading
         'mtopencv>=0.2.4', # Minh-Tri's OpenCV wrapper so we can use cv.Image
         'tqdm', # for drawing progress bars
+        'tabview', # for viewing spreadsheet-like files
     ],
     scripts=[
-        'scripts/dfconvert.py',
+        'scripts/dfconvert',
+        'scripts/dfview',
     ],
     url='https://github.com/inteplus/mtpandas',
     project_urls={

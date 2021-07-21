@@ -1,0 +1,89 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+
+'''View a '.csv', '.csv.zip', '.parquet' or tab-delimited file in a spreadsheet-like display.'''
+
+import argparse
+import tempfile
+from tabview.tabview import view
+
+from mt import pd
+from mt.base.with_utils import dummy_scope
+from mt.base import logger
+import mt.base.path as _p
+
+def main(args):
+    try:
+        df = pd.dfload(args.filepath, show_progress=True)
+        logger.debug(df.columns)
+        copied = False
+        df2 = df
+        for key in df.columns:
+            dftype = pd.get_dftype(df[key])
+            if dftype == 'object':
+                continue
+            if not copied:
+                df2 = df.copy() # to avoid raising a warning
+            df2[key] = df[key].apply(lambda x: None if x is None else str(x))
+
+        scope = tempfile.TemporaryDirectory()
+        filepath = _p.join(scope.name, 'temp.csv')
+        pd.dfsave(df2, filepath, pack=False, show_progress=True)
+    except:
+        logger.warn_last_exception()
+        filepath = args.filepath
+        scope = dummy_scope
+    with scope:
+        view(filepath, start_pos=start_pos,
+             column_width=args.width, double_width=args.double_width)
+
+
+def start_position(start_norm, start_classic):
+    """Given a string "[y, x, ...]" or a string "+[y]:[x]", return a tuple (y, x)
+    for the start position
+
+    Args: start_norm - string [y,x, ...]
+          start_classic - string "+[y]:[x]"
+
+    Returns: tuple (y, x)
+
+    """
+    if start_norm is not None:
+        start_pos = start_norm.split(',')[:2]
+        if not start_pos[0]:
+            start_pos[0] = 0
+        start_pos = [int(i) for i in start_pos]
+    elif start_classic:
+        sp = start_classic[0].strip('+').split(':')
+        if not sp[0]:
+            sp[0] = 0
+        try:
+            start_pos = (int(sp[0]), int(sp[1]))
+        except IndexError:
+            start_pos = (int(sp[0]), 0)
+    else:
+        start_pos = (0, 0)
+    return start_pos
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__ + "\n\n"
+                                     "Press F1 or '?' while running for a list of available keybindings.")
+
+    parser.add_argument('filepath', type=str,
+                        help="Filepath to the dataframe for viewing.")
+    parser.add_argument('--start_pos', '-s',
+                        help="Initial cursor display position. "
+                        "Single number for just y (row) position, or two "
+                        "comma-separated numbers (--start_pos 2,3) for both. ")
+    parser.add_argument('--width', '-w', default=20,
+                        help="Specify column width. 'max' or 'mode' (default) "
+                        "for variable widths, or an integer value for "
+                        "fixed column width.")
+    parser.add_argument('--double_width', action='store_true', default=False,
+                        help="Force full handling of double-width characters "
+                        "for large files (with a performance penalty)")
+    args = parser.parse_args()
+
+    start_pos = start_position(args.start_pos, [])
+    main(args)
