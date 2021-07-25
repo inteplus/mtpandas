@@ -27,7 +27,7 @@ def main(args):
 
         logger.info("Converting into in-memory CSV file for tabview.")
         filepath = BytesIO()
-        df2.to_csv(filepath, quoting=csv.QUOTE_NONNUMERIC)
+        df2.to_csv(filepath, quoting=csv.QUOTE_NONNUMERIC, index=bool(df2.index.name is not None))
         filepath.seek(0) # to the beginning
     except:
         logger.warn_last_exception()
