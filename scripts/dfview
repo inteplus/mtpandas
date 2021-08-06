@@ -15,8 +15,13 @@ import mt.base.path as _p
 def main(args):
     try:
         df = pd.dfload(args.filepath, show_progress=True)
+        if isinstance(args.max_rows, int):
+            df = df[:args.max_rows]
+            logger.info("Restricted to {} rows.".format(len(df)))
+
         copied = False
         df2 = df
+
         for key in df.columns:
             dftype = pd.get_dftype(df[key])
             if dftype == 'object':
@@ -82,6 +87,8 @@ if __name__ == '__main__':
     parser.add_argument('--double_width', action='store_true', default=False,
                         help="Force full handling of double-width characters "
                         "for large files (with a performance penalty)")
+    parser.add_argument('-r', '--max_rows', type=int, default=None,
+                        help="If specified, the maximum number of rows to crop the table to before viewing.")
     args = parser.parse_args()
 
     start_pos = start_position(args.start_pos, [])
