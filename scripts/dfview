@@ -22,13 +22,13 @@ def main(args):
         copied = False
         df2 = df
 
-        for key in df.columns:
-            dftype = pd.get_dftype(df[key])
+        for key in df2.columns:
+            dftype = pd.get_dftype(df2[key])
             if dftype == 'object':
                 continue
             if not copied:
-                df2 = df.copy() # to avoid raising a warning
-            df2[key] = df[key].apply(lambda x: None if x is None else str(x))
+                df2 = df2.copy() # to avoid raising a warning
+            df2[key] = df2[key].apply(lambda x: None if x is None else str(x))
 
         logger.info("Converting into in-memory CSV file for tabview.")
         filepath = BytesIO()
