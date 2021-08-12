@@ -28,6 +28,7 @@ def main(args):
                 continue
             if not copied:
                 df2 = df2.copy() # to avoid raising a warning
+                copied = True
             df2[key] = df2[key].apply(lambda x: None if x is None else str(x))
 
         logger.info("Converting into in-memory CSV file for tabview.")
