@@ -22,8 +22,8 @@ def main(args):
         copied = False
         df2 = df
 
-        for key in df2.columns:
-            dftype = pd.get_dftype(df2[key])
+        for key in df.columns:
+            dftype = pd.get_dftype(df[key])
             if dftype == 'object':
                 continue
             if not copied:
