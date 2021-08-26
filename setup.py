@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 from setuptools import setup, find_namespace_packages
-from mt.pandas.version import VERSION
+from mt.pandas.version import version
 
 setup(
     name='mtpandas',
-    version=VERSION,
+    version=version,
     description="MT's extra modules for pandas.",
     author=["Minh-Tri Pham"],
     packages=find_namespace_packages(include=['mt.*']),
