@@ -3,6 +3,7 @@
 
 '''View a '.csv', '.csv.zip', '.parquet' or tab-delimited file in a spreadsheet-like display.'''
 
+import asyncio
 import argparse
 import csv
 from io import BytesIO
@@ -10,9 +11,8 @@ from tabview.tabview import view
 
 from mt import pd
 from mt.base import logger
-import mt.base.path as _p
 
-def main(args):
+async def main(args):
     try:
         df = pd.dfload(args.filepath, show_progress=True)
         if isinstance(args.max_rows, int):
@@ -93,4 +93,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     start_pos = start_position(args.start_pos, [])
-    main(args)
+    asyncio.run(main(args))
