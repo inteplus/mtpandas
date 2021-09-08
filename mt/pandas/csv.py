@@ -1,3 +1,4 @@
+import io
 import json
 import pandas as pd
 from tqdm import tqdm
@@ -12,10 +13,7 @@ import time as _t
 import zipfile as _zf
 
 
-__all__ = ['metadata', 'metadata2dtypes', 'read_csv', 'to_csv_asyn', 'to_csv']
-
-
-# MT-TODO: wrtie read_csv_asyn and to_csv_asyn
+__all__ = ['metadata', 'metadata2dtypes', 'read_csv_asyn', 'read_csv', 'to_csv_asyn', 'to_csv']
 
 
 def metadata(df):
@@ -65,7 +63,7 @@ def metadata2dtypes(meta):
     # return {x:np.dtype(y) for (x,y) in s.items()}
 
 
-def read_csv(filepath, show_progress=False, **kwargs):
+async def read_csv_asyn(filepath, show_progress=False, asyn: bool = True, **kwargs):
 
     def postprocess(df):
         # special treatment of fields introduced by function dfpack()
@@ -85,13 +83,13 @@ def read_csv(filepath, show_progress=False, **kwargs):
                     df[key] = df[key].apply(fromlist)
         return df
 
-    def process(filepath, fp1, fp2, show_progress=False, **kwargs):
+    def process(filepath, data1: io.StringIO, data2, show_progress=False, **kwargs):
 
         # do read
         if show_progress:
             bar = tqdm(unit='row')
         dfs = []
-        for df in pd.read_csv(fp1, quoting=_csv.QUOTE_NONNUMERIC, chunksize=1024, **kwargs):
+        for df in pd.read_csv(data1, quoting=_csv.QUOTE_NONNUMERIC, chunksize=1024, **kwargs):
             dfs.append(df)
             if show_progress:
                 bar.update(len(df))
@@ -100,7 +98,7 @@ def read_csv(filepath, show_progress=False, **kwargs):
             bar.close()
 
         # If '.meta' file exists, assume general csv file and use pandas to read.
-        if fp2 is None: # no meta
+        if data2 is None: # no meta
             return postprocess(df)
 
         spinner = Halo(text="dfloading '{}'".format(filepath), spinner='dots') if show_progress else dummy_scope
@@ -113,7 +111,7 @@ def read_csv(filepath, show_progress=False, **kwargs):
                 # load the metadata
                 if show_progress:
                     spinner.text = "loading the metadata"
-                meta = None if fp2 is None else json.load(fp2)
+                meta = None if data2 is None else json.loads(data2)
 
                 if meta is None:
                     if show_progress:
@@ -168,26 +166,33 @@ def read_csv(filepath, show_progress=False, **kwargs):
 
     # make sure we do not concurrently access the file
     with path.lock(filepath, to_write=False):
-        if filepath.lower().endswith('.csv.zip'):
+        if filepath.lower().endswith('.csv.zip'): # MT-TODO: asyncio this part
             with _zf.ZipFile(filepath, mode='r') as myzip:
                 filename = path.basename(filepath)[:-4]
                 fp1 = myzip.open(filename, mode='r', force_zip64=True)
+                data1 = fp1.read().decode()
                 meta_filename = filename[:-4]+'.meta'
                 if meta_filename in myzip.namelist():
-                    fp2 = myzip.open(meta_filename, mode='r')
+                    data2 = myzip.open(meta_filename, mode='r').read()
                 else:
-                    fp2 = None
-                return process(filepath, fp1, fp2, show_progress=show_progress, **kwargs)
+                    data2 = None
+                return process(filepath, data1, data2, show_progress=show_progress, **kwargs)
         else:
             fp1 = filepath
+            data1 = await read_text(fp1, asyn=asyn)
             meta_filepath = path.basename(filepath)[:-4]+'.meta'
             if path.exists(meta_filepath):
-                fp2 = open(meta_filepath, 'rt')
+                data2 = await read_text(meta_filepath, asyn=asyn)
             else:
-                fp2 = None
-            return process(filepath, fp1, fp2, show_progress=show_progress, **kwargs)
+                data2 = None
+            return process(filepath, io.StringIO(data1), data2, show_progress=show_progress, **kwargs)
 
-read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.''' + pd.read_csv.__doc__
+read_csv_asyn.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'asyn' tells whether the function is invoked asynchronously or synchronously.\n''' + pd.read_csv.__doc__
+
+
+def read_csv(filepath, show_progress=False, **kwargs):
+    return srun(read_csv_asyn, filepath, show_progress=show_progress, **kwargs)
+read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.\n''' + pd.read_csv.__doc__
 
 
 async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress=False, asyn: bool = True, **kwargs):
@@ -281,9 +286,9 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                 spinner.succeed("failed to dfsave '{}'".format(filepath))
             raise
 
-to_csv_asyn.__doc__ = '''An asyn function that writes DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'asyn' tells whether the function is invoked asynchronously or synchronously. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None), and the remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + pd.DataFrame.to_csv.__doc__
+to_csv_asyn.__doc__ = '''An asyn function that writes DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword 'asyn' tells whether the function is invoked asynchronously or synchronously. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + pd.DataFrame.to_csv.__doc__
 
 
 def to_csv(df, filepath, index='auto', file_mode=0o664, show_progress=False, **kwargs):
     return srun(to_csv_asyn, df, filepath, index=index, file_mode=file_mode, show_progress=show_progress, **kwargs)
-to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None), and the remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.\n''' + pd.DataFrame.to_csv.__doc__
+to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword argument 'show_progress' tells whether to show progress in the terminal. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + pd.DataFrame.to_csv.__doc__
