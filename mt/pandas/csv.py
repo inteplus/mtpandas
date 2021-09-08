@@ -5,7 +5,7 @@ from halo import Halo
 import csv as _csv
 from mt import np
 from mt.base import path
-from mt.base.asyn import srun, sleep, read_text, write_text
+from mt.base.asyn import srun, sleep, read_text, write_text, json_load, json_save
 from mt.base.with_utils import dummy_scope, join_scopes
 import json
 import time as _t
@@ -248,7 +248,8 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                         path.make_dirs(dirpath)
                     if not path.exists(dirpath):
                         await sleep(1, asyn=asyn)
-                    res = df.to_csv(filepath2, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+                    data = df.to_csv(None, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
+                    await write_text(filepath2, data, asyn=asyn)
                     if file_mode:  # chmod
                         path.chmod(filepath2, file_mode)
                     if show_progress:
@@ -256,7 +257,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
 
                     # write the meta file
                     filepath3 = filepath[:-4]+'.meta'
-                    json.dump(metadata(df), open(filepath3, 'wt'))
+                    await json_save(filepath3, metadata(df), asyn=asyn)
                     try:
                         if file_mode:  # chmod
                             path.chmod(filepath3, file_mode)
