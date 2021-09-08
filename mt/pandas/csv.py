@@ -5,6 +5,7 @@ from halo import Halo
 import csv as _csv
 from mt import np
 from mt.base import path
+from mt.base.asyn import srun, sleep, read_text, write_text
 from mt.base.with_utils import dummy_scope, join_scopes
 import json
 import time as _t
@@ -222,7 +223,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                     if dirpath:
                         path.make_dirs(dirpath)
                     if not path.exists(dirpath):
-                        _t.sleep(1)
+                        await sleep(1, asyn=asyn)
 
                     with _zf.ZipFile(filepath2, mode='w') as myzip:
                         filename = path.basename(filepath)[:-4]
@@ -246,7 +247,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                     if dirpath:
                         path.make_dirs(dirpath)
                     if not path.exists(dirpath):
-                        _t.sleep(1)
+                        await sleep(1, asyn=asyn)
                     res = df.to_csv(filepath2, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
                     if file_mode:  # chmod
                         path.chmod(filepath2, file_mode)
@@ -264,10 +265,10 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                     if show_progress:
                         spinner.text = "saved metadata"
 
-                path.remove(filepath)
+                await path.remove_asyn(filepath, asyn=asyn)
                 if path.exists(filepath) or not path.exists(filepath2):
-                    _t.sleep(1)
-                path.rename(filepath2, filepath)
+                    await sleep(1, asyn=asyn)
+                await path.rename_asyn(filepath2, filepath, asyn=asyn)
 
                 if isinstance(spinner, Halo):
                     spinner.succeed("dfsaved '{}'".format(filepath))
