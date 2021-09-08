@@ -14,7 +14,7 @@ from mt.base import logger
 
 async def main(args):
     try:
-        df = pd.dfload(args.filepath, show_progress=True)
+        df = await pd.dfload_asyn(args.filepath, show_progress=True)
         if isinstance(args.max_rows, int):
             df = df[:args.max_rows]
             logger.info("Restricted to {} rows.".format(len(df)))

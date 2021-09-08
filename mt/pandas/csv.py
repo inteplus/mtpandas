@@ -255,6 +255,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                         await sleep(1, asyn=asyn)
                     data = df.to_csv(None, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
                     await write_text(filepath2, data, asyn=asyn)
+                    res = None
                     if file_mode:  # chmod
                         path.chmod(filepath2, file_mode)
                     if show_progress:

@@ -1,19 +1,22 @@
+import io
 import json
 import pandas as pd
 from halo import Halo
 
 from mt import np, cv
 from mt.base.with_utils import dummy_scope
-import mt.base.path as _p
-from .csv import read_csv, to_csv
+from mt.base.asyn import srun, sleep, read_binary, write_binary
+from mt.base import path
+from .csv import read_csv_asyn, to_csv_asyn
 
 
-__all__ = ['dfload', 'dfsave', 'get_dftype', 'dfpack', 'dfunpack']
+__all__ = ['dfload_asyn', 'dfload', 'dfsave_asyn', 'dfsave', 'get_dftype', 'dfpack', 'dfunpack']
 
 
 def array2list(x):
     '''Converts a nested numpy.ndarray object into a nested list object.'''
     return [array2list(y) for y in x] if isinstance(x, np.ndarray) and x.ndim == 1 else x
+
 
 def get_dftype(s):
     '''Detects the dftype of the series.
@@ -59,6 +62,7 @@ def get_dftype(s):
         return 'Image'
 
     return 'object'
+
 
 def dfpack(df, spinner=None):
     '''Packs a dataframe into a more compact format.
@@ -151,6 +155,86 @@ def dfunpack(df, spinner=None):
     return df2
 
 
+async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, asyn: bool = True, **kwargs):
+    '''An asyn function that loads a dataframe file based on the file's extension.
+
+    Parameters
+    ----------
+    df_filepath : str
+        local path to an existing dataframe. The file extension is used to determine the file type.
+    show_progress : bool
+        show a progress spinner in the terminal
+    unpack : bool
+        whether or not to unpack the dataframe after loading
+    parquet_convert_ndarray_to_list : bool
+        whether or not to convert 1D ndarrays in the loaded parquet table into Python lists
+    args : list
+        list of positional arguments to pass to the corresponding reader
+    asyn : bool
+        whether the function is to be invoked asynchronously or synchronously
+    kwargs : dict
+        dictionary of keyword arguments to pass to the corresponding reader
+
+    Returns
+    -------
+    pandas.DataFrame
+        loaded dataframe
+
+    Notes
+    -----
+    For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we use :func:`pandas.read_parquet`.
+
+    Raises
+    ------
+    TypeError
+        if file type is unknown
+    '''
+
+    filepath = df_filepath.lower()
+
+    if filepath.endswith('.parquet'):
+        if show_progress:
+            spinner = Halo("dfloading '{}'".format(filepath), spinner='dots')
+            scope = spinner
+        else:
+            spinner = None
+            scope = dummy_scope
+        with scope:
+            try:
+                data = await read_binary(df_filepath, asyn=asyn)
+                df = pd.read_parquet(io.BytesIO(data), *args, **kwargs)
+
+                if parquet_convert_ndarray_to_list:
+                    for x in df.columns:
+                        if show_progress:
+                            spinner.text = 'converting column: {}'.format(x)
+                        if df.dtypes[x] == np.dtype('O'): # object
+                            df[x] = df[x].apply(array2list) # because Parquet would save lists into nested numpy arrays which is not we expect yet.
+
+                if unpack:
+                    df = dfunpack(df, spinner=spinner)
+
+                if show_progress:
+                    spinner.succeed("dfloaded '{}'".format(filepath))
+            except:
+                if show_progress:
+                    spinner.fail("failed to dfload '{}'".format(filepath))
+                raise
+
+        return df
+
+
+    if filepath.endswith('.csv') or filepath.endswith('.csv.zip'):
+        df = await read_csv_asyn(df_filepath, *args, show_progress=show_progress, asyn=asyn, **kwargs)
+
+        if unpack:
+            df = dfunpack(df)
+
+        return df
+
+    raise TypeError("Unknown file type: '{}'".format(df_filepath))
+
+
 def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, **kwargs):
     '''Loads a dataframe file based on the file's extension.
 
@@ -183,47 +267,82 @@ def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert
     TypeError
         if file type is unknown
     '''
+    return srun(dfload_asyn, df_filepath, *args, show_progress=show_progress, unpack=unpack, parquet_convert_ndarray_to_list=parquet_convert_ndarray_to_list, **kwargs)
 
-    path = df_filepath.lower()
 
-    if path.endswith('.parquet'):
+async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, asyn: bool = True, **kwargs):
+    '''An asyn function that saves a dataframe to a file based on the file's extension.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        a dataframe
+    df_filepath : str
+        local path to an existing dataframe. The file extension is used to determine the file type.
+    file_mode : int
+        file mode to be set to using :func:`os.chmod`. If None is given, no setting of file mode will happen.
+    show_progress : bool
+        show a progress spinner in the terminal
+    pack : bool
+        whether or not to pack the dataframe before saving
+    asyn : bool
+        whether the function is to be invoked asynchronously or synchronously
+    kwargs : dict
+        dictionary of keyword arguments to pass to the corresponding writer
+
+    Returns
+    -------
+    object
+        whatever the corresponding writer returns
+
+    Notes
+    -----
+    For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.to_csv`. For '.parquet' files, we use :func:`pandas.DataFrame.to_parquet`.
+
+    Raises
+    ------
+    TypeError
+        if file type is unknown or if the input is not a dataframe
+    '''
+
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input must be a pandas.DataFrame. Got '{}'.".format(type(df)))
+
+    filepath = df_filepath.lower()
+
+    if filepath.endswith('.parquet'):
         if show_progress:
-            spinner = Halo("dfloading '{}'".format(path), spinner='dots')
+            spinner = Halo(text="dfsaving '{}'".format(filepath), spinner='dots')
             scope = spinner
         else:
             spinner = None
             scope = dummy_scope
         with scope:
             try:
-                df = pd.read_parquet(df_filepath, *args, **kwargs)
+                if pack:
+                    df = dfpack(df, spinner=spinner)
 
-                if parquet_convert_ndarray_to_list:
-                    for x in df.columns:
-                        if show_progress:
-                            spinner.text = 'converting column: {}'.format(x)
-                        if df.dtypes[x] == np.dtype('O'): # object
-                            df[x] = df[x].apply(array2list) # because Parquet would save lists into nested numpy arrays which is not we expect yet.
-
-                if unpack:
-                    df = dfunpack(df, spinner=spinner)
+                if not 'use_deprecated_int96_timestamps' in kwargs:
+                    kwargs = kwargs.copy()
+                    kwargs['use_deprecated_int96_timestamps'] = True # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
+                data = df.to_parquet(None, **kwargs)
+                res = await write_binary(df_filepath, data, asyn=asyn)
+                if file_mode:  # chmod
+                    path.chmod(df_filepath, file_mode)
 
                 if show_progress:
-                    spinner.succeed("dfloaded '{}'".format(path))
+                    spinner.succeed("dfsaved '{}'".format(filepath))
             except:
                 if show_progress:
-                    spinner.fail("failed to dfload '{}'".format(path))
+                    spinner.fail("failed to dfsave '{}'".format(filepath))
                 raise
+        return res
 
-        return df
-
-
-    if path.endswith('.csv') or path.endswith('.csv.zip'):
-        df = read_csv(df_filepath, *args, show_progress=show_progress, **kwargs)
-
-        if unpack:
-            df = dfunpack(df)
-
-        return df
+    if filepath.endswith('.csv') or filepath.endswith('.csv.zip'):
+        if pack:
+            df = dfpack(df)
+        res = await to_csv_asyn(df, df_filepath, file_mode=file_mode, show_progress=show_progress, asyn=asyn, **kwargs)
+        return res
 
     raise TypeError("Unknown file type: '{}'".format(df_filepath))
 
@@ -260,42 +379,4 @@ def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, **k
     TypeError
         if file type is unknown or if the input is not a dataframe
     '''
-
-    if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input must be a pandas.DataFrame. Got '{}'.".format(type(df)))
-
-    path = df_filepath.lower()
-
-    if path.endswith('.parquet'):
-        if show_progress:
-            spinner = Halo(text="dfsaving '{}'".format(path), spinner='dots')
-            scope = spinner
-        else:
-            spinner = None
-            scope = dummy_scope
-        with scope:
-            try:
-                if pack:
-                    df = dfpack(df, spinner=spinner)
-
-                if not 'use_deprecated_int96_timestamps' in kwargs:
-                    kwargs = kwargs.copy()
-                    kwargs['use_deprecated_int96_timestamps'] = True # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
-                res = df.to_parquet(df_filepath, **kwargs)
-                if file_mode:  # chmod
-                    _p.chmod(df_filepath, file_mode)
-
-                if show_progress:
-                    spinner.succeed("dfsaved '{}'".format(path))
-            except:
-                if show_progress:
-                    spinner.fail("failed to dfsave '{}'".format(path))
-                raise
-        return res
-
-    if path.endswith('.csv') or path.endswith('.csv.zip'):
-        if pack:
-            df = dfpack(df)
-        return to_csv(df, df_filepath, file_mode=file_mode, show_progress=show_progress, **kwargs)
-
-    raise TypeError("Unknown file type: '{}'".format(df_filepath))
+    return srun(dfsave_asyn, df, df_filepath, file_mode=file_mode, show_progress=show_progress, pack=pack, **kwargs)
