@@ -4,7 +4,7 @@ from tqdm import tqdm
 from halo import Halo
 import csv as _csv
 from mt import np
-import mt.base.path as _p
+from mt.base import path
 from mt.base.with_utils import dummy_scope, join_scopes
 import json
 import time as _t
@@ -163,10 +163,10 @@ def read_csv(path, show_progress=False, **kwargs):
         return postprocess(df)
 
     # make sure we do not concurrently access the file
-    with _p.lock(path, to_write=False):
+    with path.lock(path, to_write=False):
         if path.lower().endswith('.csv.zip'):
             with _zf.ZipFile(path, mode='r') as myzip:
-                filename = _p.basename(path)[:-4]
+                filename = path.basename(path)[:-4]
                 fp1 = myzip.open(filename, mode='r', force_zip64=True)
                 meta_filename = filename[:-4]+'.meta'
                 if meta_filename in myzip.namelist():
@@ -176,8 +176,8 @@ def read_csv(path, show_progress=False, **kwargs):
                 return process(path, fp1, fp2, show_progress=show_progress, **kwargs)
         else:
             fp1 = path
-            meta_filepath = _p.basename(path)[:-4]+'.meta'
-            if _p.exists(meta_filepath):
+            meta_filepath = path.basename(path)[:-4]+'.meta'
+            if path.exists(meta_filepath):
                 fp2 = open(meta_filepath, 'rt')
             else:
                 fp2 = None
@@ -211,18 +211,18 @@ def to_csv(df, path, index='auto', file_mode=0o664, show_progress=False, **kwarg
                 index = bool(df.index.name)
 
             # make sure we do not concurrenly access the file
-            with _p.lock(path, to_write=True):
+            with path.lock(path, to_write=True):
                 if path.lower().endswith('.csv.zip'):
                     # write the csv file
                     path2 = path+'.tmp.zip'
-                    dirpath = _p.dirname(path)
+                    dirpath = path.dirname(path)
                     if dirpath:
-                        _p.make_dirs(dirpath)
-                    if not _p.exists(dirpath):
+                        path.make_dirs(dirpath)
+                    if not path.exists(dirpath):
                         _t.sleep(1)
 
                     with _zf.ZipFile(path2, mode='w') as myzip:
-                        filename = _p.basename(path)[:-4]
+                        filename = path.basename(path)[:-4]
                         with myzip.open(filename, mode='w', force_zip64=True) as f: # csv
                             data = df.to_csv(None, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
                             f.write(data.encode())
@@ -235,18 +235,18 @@ def to_csv(df, path, index='auto', file_mode=0o664, show_progress=False, **kwarg
                             spinner.text = "saved metadata"
                         res = None
                     if file_mode:  # chmod
-                        _p.chmod(path2, file_mode)
+                        path.chmod(path2, file_mode)
                 else:
                     # write the csv file
                     path2 = path+'.tmp.csv'
-                    dirpath = _p.dirname(path)
+                    dirpath = path.dirname(path)
                     if dirpath:
-                        _p.make_dirs(dirpath)
-                    if not _p.exists(dirpath):
+                        path.make_dirs(dirpath)
+                    if not path.exists(dirpath):
                         _t.sleep(1)
                     res = df.to_csv(path2, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
                     if file_mode:  # chmod
-                        _p.chmod(path2, file_mode)
+                        path.chmod(path2, file_mode)
                     if show_progress:
                         spinner.text = "saved CSV content"
 
@@ -255,16 +255,16 @@ def to_csv(df, path, index='auto', file_mode=0o664, show_progress=False, **kwarg
                     json.dump(metadata(df), open(path3, 'wt'))
                     try:
                         if file_mode:  # chmod
-                            _p.chmod(path3, file_mode)
+                            path.chmod(path3, file_mode)
                     except PermissionError:
                         pass # for now
                     if show_progress:
                         spinner.text = "saved metadata"
 
-                _p.remove(path)
-                if _p.exists(path) or not _p.exists(path2):
+                path.remove(path)
+                if path.exists(path) or not path.exists(path2):
                     _t.sleep(1)
-                _p.rename(path2, path)
+                path.rename(path2, path)
 
                 if isinstance(spinner, Halo):
                     spinner.succeed("dfsaved '{}'".format(path))
