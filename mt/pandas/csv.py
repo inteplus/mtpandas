@@ -216,7 +216,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
 
             # make sure we do not concurrenly access the file
             with path.lock(filepath, to_write=True):
-                if filepath.lower().endswith('.csv.zip'):
+                if filepath.lower().endswith('.csv.zip'): # MT-TODO: asyncio this part
                     # write the csv file
                     filepath2 = filepath+'.tmp.zip'
                     dirpath = path.dirname(filepath)
@@ -285,93 +285,5 @@ to_csv_asyn.__doc__ = '''An asyn function that writes DataFrame to a comma-separ
 
 
 def to_csv(df, filepath, index='auto', file_mode=0o664, show_progress=False, **kwargs):
-
-    # special treatment of fields introduced by function dfpack()
-    for key in df:
-        if key.endswith('_df_nd_ravel'):
-            has_ndarray = True
-            break
-    else:
-        has_ndarray = False
-    if has_ndarray:
-        df = df.copy() # to avoid generating a warning
-        tolist = lambda x: None if x is None else json.dumps(x.tolist())
-        for key in df:
-            if key.endswith('_df_nd_ravel'):
-                df[key] = df[key].apply(tolist)
-            elif key.endswith('_df_nd_shape'):
-                df[key] = df[key].apply(tolist)
-
-    spinner = Halo(text="dfsaving '{}'".format(filepath), spinner='dots') if show_progress else dummy_scope
-    with spinner:
-        try:
-            if index=='auto':
-                index = bool(df.index.name)
-
-            # make sure we do not concurrenly access the file
-            with path.lock(filepath, to_write=True):
-                if filepath.lower().endswith('.csv.zip'):
-                    # write the csv file
-                    filepath2 = filepath+'.tmp.zip'
-                    dirpath = path.dirname(filepath)
-                    if dirpath:
-                        path.make_dirs(dirpath)
-                    if not path.exists(dirpath):
-                        _t.sleep(1)
-
-                    with _zf.ZipFile(filepath2, mode='w') as myzip:
-                        filename = path.basename(filepath)[:-4]
-                        with myzip.open(filename, mode='w', force_zip64=True) as f: # csv
-                            data = df.to_csv(None, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
-                            f.write(data.encode())
-                        if show_progress:
-                            spinner.text = "saved CSV content"
-                        with myzip.open(filename[:-4]+'.meta', mode='w') as f: # meta
-                            data = json.dumps(metadata(df))
-                            f.write(data.encode())
-                        if show_progress:
-                            spinner.text = "saved metadata"
-                        res = None
-                    if file_mode:  # chmod
-                        path.chmod(filepath2, file_mode)
-                else:
-                    # write the csv file
-                    filepath2 = filepath+'.tmp.csv'
-                    dirpath = path.dirname(filepath)
-                    if dirpath:
-                        path.make_dirs(dirpath)
-                    if not path.exists(dirpath):
-                        _t.sleep(1)
-                    res = df.to_csv(filepath2, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
-                    if file_mode:  # chmod
-                        path.chmod(filepath2, file_mode)
-                    if show_progress:
-                        spinner.text = "saved CSV content"
-
-                    # write the meta file
-                    filepath3 = filepath[:-4]+'.meta'
-                    json.dump(metadata(df), open(filepath3, 'wt'))
-                    try:
-                        if file_mode:  # chmod
-                            path.chmod(filepath3, file_mode)
-                    except PermissionError:
-                        pass # for now
-                    if show_progress:
-                        spinner.text = "saved metadata"
-
-                path.remove(filepath)
-                if path.exists(filepath) or not path.exists(filepath2):
-                    _t.sleep(1)
-                path.rename(filepath2, filepath)
-
-                if isinstance(spinner, Halo):
-                    spinner.succeed("dfsaved '{}'".format(filepath))
-
-                return res
-
-        except:
-            if isinstance(spinner, Halo):
-                spinner.succeed("failed to dfsave '{}'".format(filepath))
-            raise
-
+    return srun(to_csv_asyn, df, filepath, index=index, file_mode=file_mode, show_progress=show_progress, **kwargs)
 to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None), and the remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.\n''' + pd.DataFrame.to_csv.__doc__
