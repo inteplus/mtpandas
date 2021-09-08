@@ -6,7 +6,7 @@ from halo import Halo
 import csv as _csv
 from mt import np
 from mt.base import path
-from mt.base.asyn import srun, sleep, read_text, write_text, json_load, json_save
+from mt.base.asyn import srun, sleep, read_binary, write_binary, read_text, write_text, json_load, json_save
 from mt.base.with_utils import dummy_scope, join_scopes
 import json
 import time as _t
@@ -166,8 +166,9 @@ async def read_csv_asyn(filepath, show_progress=False, asyn: bool = True, **kwar
 
     # make sure we do not concurrently access the file
     with path.lock(filepath, to_write=False):
-        if filepath.lower().endswith('.csv.zip'): # MT-TODO: asyncio this part
-            with _zf.ZipFile(filepath, mode='r') as myzip:
+        if filepath.lower().endswith('.csv.zip'):
+            data = await read_binary(filepath, asyn=asyn)
+            with _zf.ZipFile(io.BytesIO(data), mode='r') as myzip:
                 filename = path.basename(filepath)[:-4]
                 fp1 = myzip.open(filename, mode='r', force_zip64=True)
                 data1 = fp1.read().decode()
@@ -221,7 +222,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
 
             # make sure we do not concurrenly access the file
             with path.lock(filepath, to_write=True):
-                if filepath.lower().endswith('.csv.zip'): # MT-TODO: asyncio this part
+                if filepath.lower().endswith('.csv.zip'):
                     # write the csv file
                     filepath2 = filepath+'.tmp.zip'
                     dirpath = path.dirname(filepath)
@@ -230,7 +231,8 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                     if not path.exists(dirpath):
                         await sleep(1, asyn=asyn)
 
-                    with _zf.ZipFile(filepath2, mode='w') as myzip:
+                    zipdata = io.BytesIO()
+                    with _zf.ZipFile(zipdata, mode='w') as myzip:
                         filename = path.basename(filepath)[:-4]
                         with myzip.open(filename, mode='w', force_zip64=True) as f: # csv
                             data = df.to_csv(None, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
@@ -240,9 +242,10 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                         with myzip.open(filename[:-4]+'.meta', mode='w') as f: # meta
                             data = json.dumps(metadata(df))
                             f.write(data.encode())
-                        if show_progress:
-                            spinner.text = "saved metadata"
-                        res = None
+                    await write_binary(filepath, zipdata.getvalue(), asyn=asyn)
+                    if show_progress:
+                        spinner.text = "saved metadata"
+                    res = None
                     if file_mode:  # chmod
                         path.chmod(filepath2, file_mode)
                 else:
