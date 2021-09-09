@@ -5,8 +5,7 @@ from tqdm import tqdm
 from halo import Halo
 import csv as _csv
 from mt import np
-from mt.base import path
-from mt.base.asyn import srun, sleep, read_binary, write_binary, read_text, write_text, json_load, json_save
+from mt.base import path, aio
 from mt.base.with_utils import dummy_scope, join_scopes
 import json
 import time as _t
@@ -167,7 +166,7 @@ async def read_csv_asyn(filepath, show_progress=False, asyn: bool = True, **kwar
     # make sure we do not concurrently access the file
     with path.lock(filepath, to_write=False):
         if filepath.lower().endswith('.csv.zip'):
-            data = await read_binary(filepath, asyn=asyn)
+            data = await aio.read_binary(filepath, asyn=asyn)
             with _zf.ZipFile(io.BytesIO(data), mode='r') as myzip:
                 filename = path.basename(filepath)[:-4]
                 fp1 = myzip.open(filename, mode='r', force_zip64=True)
@@ -180,10 +179,10 @@ async def read_csv_asyn(filepath, show_progress=False, asyn: bool = True, **kwar
                 return process(filepath, data1, data2, show_progress=show_progress, **kwargs)
         else:
             fp1 = filepath
-            data1 = await read_text(fp1, asyn=asyn)
+            data1 = await aio.read_text(fp1, asyn=asyn)
             meta_filepath = path.basename(filepath)[:-4]+'.meta'
             if path.exists(meta_filepath):
-                data2 = await read_text(meta_filepath, asyn=asyn)
+                data2 = await aio.read_text(meta_filepath, asyn=asyn)
             else:
                 data2 = None
             return process(filepath, io.StringIO(data1), data2, show_progress=show_progress, **kwargs)
@@ -192,7 +191,7 @@ read_csv_asyn.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.Da
 
 
 def read_csv(filepath, show_progress=False, **kwargs):
-    return srun(read_csv_asyn, filepath, show_progress=show_progress, **kwargs)
+    return aio.srun(read_csv_asyn, filepath, show_progress=show_progress, **kwargs)
 read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.\n''' + pd.read_csv.__doc__
 
 
@@ -229,7 +228,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                     if dirpath:
                         path.make_dirs(dirpath)
                     if not path.exists(dirpath):
-                        await sleep(1, asyn=asyn)
+                        await aio.sleep(1, asyn=asyn)
 
                     zipdata = io.BytesIO()
                     with _zf.ZipFile(zipdata, mode='w') as myzip:
@@ -242,7 +241,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                         with myzip.open(filename[:-4]+'.meta', mode='w') as f: # meta
                             data = json.dumps(metadata(df))
                             f.write(data.encode())
-                    await write_binary(filepath, zipdata.getvalue(), asyn=asyn)
+                    await aio.write_binary(filepath, zipdata.getvalue(), asyn=asyn)
                     if show_progress:
                         spinner.text = "saved metadata"
                     res = None
@@ -255,9 +254,9 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                     if dirpath:
                         path.make_dirs(dirpath)
                     if not path.exists(dirpath):
-                        await sleep(1, asyn=asyn)
+                        await aio.sleep(1, asyn=asyn)
                     data = df.to_csv(None, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
-                    await write_text(filepath2, data, asyn=asyn)
+                    await aio.write_text(filepath2, data, asyn=asyn)
                     res = None
                     if file_mode:  # chmod
                         path.chmod(filepath2, file_mode)
@@ -266,7 +265,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
 
                     # write the meta file
                     filepath3 = filepath[:-4]+'.meta'
-                    await json_save(filepath3, metadata(df), asyn=asyn)
+                    await aio.json_save(filepath3, metadata(df), asyn=asyn)
                     try:
                         if file_mode:  # chmod
                             path.chmod(filepath3, file_mode)
@@ -277,7 +276,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
 
                 await path.remove_asyn(filepath, asyn=asyn)
                 if path.exists(filepath) or not path.exists(filepath2):
-                    await sleep(1, asyn=asyn)
+                    await aio.sleep(1, asyn=asyn)
                 await path.rename_asyn(filepath2, filepath, asyn=asyn)
 
                 if isinstance(spinner, Halo):
@@ -294,5 +293,5 @@ to_csv_asyn.__doc__ = '''An asyn function that writes DataFrame to a comma-separ
 
 
 def to_csv(df, filepath, index='auto', file_mode=0o664, show_progress=False, **kwargs):
-    return srun(to_csv_asyn, df, filepath, index=index, file_mode=file_mode, show_progress=show_progress, **kwargs)
+    return aio.srun(to_csv_asyn, df, filepath, index=index, file_mode=file_mode, show_progress=show_progress, **kwargs)
 to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword argument 'show_progress' tells whether to show progress in the terminal. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + pd.DataFrame.to_csv.__doc__

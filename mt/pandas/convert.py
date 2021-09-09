@@ -4,9 +4,7 @@ import pandas as pd
 from halo import Halo
 
 from mt import np, cv
-from mt.base.with_utils import dummy_scope
-from mt.base.asyn import srun, sleep, read_binary, write_binary
-from mt.base import path
+from mt.base import path, aio, dummy_scope
 from .csv import read_csv_asyn, to_csv_asyn
 
 
@@ -201,7 +199,7 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
             scope = dummy_scope
         with scope:
             try:
-                data = await read_binary(df_filepath, asyn=asyn)
+                data = await aio.read_binary(df_filepath, asyn=asyn)
                 df = pd.read_parquet(io.BytesIO(data), *args, **kwargs)
 
                 if parquet_convert_ndarray_to_list:
@@ -267,7 +265,7 @@ def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert
     TypeError
         if file type is unknown
     '''
-    return srun(dfload_asyn, df_filepath, *args, show_progress=show_progress, unpack=unpack, parquet_convert_ndarray_to_list=parquet_convert_ndarray_to_list, **kwargs)
+    return aio.srun(dfload_asyn, df_filepath, *args, show_progress=show_progress, unpack=unpack, parquet_convert_ndarray_to_list=parquet_convert_ndarray_to_list, **kwargs)
 
 
 async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, asyn: bool = True, **kwargs):
@@ -326,7 +324,7 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
                     kwargs = kwargs.copy()
                     kwargs['use_deprecated_int96_timestamps'] = True # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
                 data = df.to_parquet(None, **kwargs)
-                res = await write_binary(df_filepath, data, asyn=asyn)
+                res = await aio.write_binary(df_filepath, data, asyn=asyn)
                 if file_mode:  # chmod
                     path.chmod(df_filepath, file_mode)
 
@@ -379,4 +377,4 @@ def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, **k
     TypeError
         if file type is unknown or if the input is not a dataframe
     '''
-    return srun(dfsave_asyn, df, df_filepath, file_mode=file_mode, show_progress=show_progress, pack=pack, **kwargs)
+    return aio.srun(dfsave_asyn, df, df_filepath, file_mode=file_mode, show_progress=show_progress, pack=pack, **kwargs)
