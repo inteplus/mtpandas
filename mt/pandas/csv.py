@@ -241,7 +241,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                         with myzip.open(filename[:-4]+'.meta', mode='w') as f: # meta
                             data = json.dumps(metadata(df))
                             f.write(data.encode())
-                    await aio.write_binary(filepath, zipdata.getvalue(), asyn=asyn)
+                    await aio.write_binary(filepath2, zipdata.getvalue(), asyn=asyn)
                     if show_progress:
                         spinner.text = "saved metadata"
                     res = None
