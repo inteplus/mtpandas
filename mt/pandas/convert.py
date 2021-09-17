@@ -153,7 +153,7 @@ def dfunpack(df, spinner=None):
     return df2
 
 
-async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, asyn: bool = True, **kwargs):
+async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, context_vars: dict = {}, **kwargs):
     '''An asyn function that loads a dataframe file based on the file's extension.
 
     Parameters
@@ -168,8 +168,9 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
         whether or not to convert 1D ndarrays in the loaded parquet table into Python lists
     args : list
         list of positional arguments to pass to the corresponding reader
-    asyn : bool
-        whether the function is to be invoked asynchronously or synchronously
+    context_vars : dict
+        a dictionary of context variables within which the function runs. It must include
+        `context_vars['async']` to tell whether to invoke the function asynchronously or not.
     kwargs : dict
         dictionary of keyword arguments to pass to the corresponding reader
 
@@ -199,7 +200,7 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
             scope = dummy_scope
         with scope:
             try:
-                data = await aio.read_binary(df_filepath, asyn=asyn)
+                data = await aio.read_binary(df_filepath, context_vars=context_vars)
                 df = pd.read_parquet(io.BytesIO(data), *args, **kwargs)
 
                 if parquet_convert_ndarray_to_list:
@@ -223,7 +224,7 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
 
 
     if filepath.endswith('.csv') or filepath.endswith('.csv.zip'):
-        df = await read_csv_asyn(df_filepath, *args, show_progress=show_progress, asyn=asyn, **kwargs)
+        df = await read_csv_asyn(df_filepath, *args, show_progress=show_progress, context_vars=context_vars, **kwargs)
 
         if unpack:
             df = dfunpack(df)
@@ -268,7 +269,7 @@ def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert
     return aio.srun(dfload_asyn, df_filepath, *args, show_progress=show_progress, unpack=unpack, parquet_convert_ndarray_to_list=parquet_convert_ndarray_to_list, **kwargs)
 
 
-async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, asyn: bool = True, **kwargs):
+async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, context_vars: dict = {}, **kwargs):
     '''An asyn function that saves a dataframe to a file based on the file's extension.
 
     Parameters
@@ -283,8 +284,9 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
         show a progress spinner in the terminal
     pack : bool
         whether or not to pack the dataframe before saving
-    asyn : bool
-        whether the function is to be invoked asynchronously or synchronously
+    context_vars : dict
+        a dictionary of context variables within which the function runs. It must include
+        `context_vars['async']` to tell whether to invoke the function asynchronously or not.
     kwargs : dict
         dictionary of keyword arguments to pass to the corresponding writer
 
@@ -324,7 +326,7 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
                     kwargs = kwargs.copy()
                     kwargs['use_deprecated_int96_timestamps'] = True # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
                 data = df.to_parquet(None, **kwargs)
-                res = await aio.write_binary(df_filepath, data, asyn=asyn)
+                res = await aio.write_binary(df_filepath, data, context_vars=context_vars)
                 if file_mode:  # chmod
                     path.chmod(df_filepath, file_mode)
 
@@ -339,7 +341,7 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
     if filepath.endswith('.csv') or filepath.endswith('.csv.zip'):
         if pack:
             df = dfpack(df)
-        res = await to_csv_asyn(df, df_filepath, file_mode=file_mode, show_progress=show_progress, asyn=asyn, **kwargs)
+        res = await to_csv_asyn(df, df_filepath, file_mode=file_mode, show_progress=show_progress, context_vars=context_vars, **kwargs)
         return res
 
     raise TypeError("Unknown file type: '{}'".format(df_filepath))

@@ -13,8 +13,8 @@
 # print(version.parse("1.1.3") > version.parse("1.100.4a"))
 # ```
 
-MAJOR_VERSION=0
-MINOR_VERSION=8
+MAJOR_VERSION=1
+MINOR_VERSION=0
 
 VERSION_YEAR=`date -u +'%Y'`
 VERSION_MONTH=`date -u +'%m'`

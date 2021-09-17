@@ -62,7 +62,7 @@ def metadata2dtypes(meta):
     # return {x:np.dtype(y) for (x,y) in s.items()}
 
 
-async def read_csv_asyn(filepath, show_progress=False, asyn: bool = True, **kwargs):
+async def read_csv_asyn(filepath, show_progress=False, context_vars: dict = {}, **kwargs):
 
     def postprocess(df):
         # special treatment of fields introduced by function dfpack()
@@ -166,7 +166,7 @@ async def read_csv_asyn(filepath, show_progress=False, asyn: bool = True, **kwar
     # make sure we do not concurrently access the file
     with path.lock(filepath, to_write=False):
         if filepath.lower().endswith('.csv.zip'):
-            data = await aio.read_binary(filepath, asyn=asyn)
+            data = await aio.read_binary(filepath, context_vars=context_vars)
             with _zf.ZipFile(io.BytesIO(data), mode='r') as myzip:
                 filename = path.basename(filepath)[:-4]
                 fp1 = myzip.open(filename, mode='r', force_zip64=True)
@@ -179,15 +179,15 @@ async def read_csv_asyn(filepath, show_progress=False, asyn: bool = True, **kwar
                 return process(filepath, data1, data2, show_progress=show_progress, **kwargs)
         else:
             fp1 = filepath
-            data1 = await aio.read_text(fp1, asyn=asyn)
+            data1 = await aio.read_text(fp1, context_vars=context_vars)
             meta_filepath = path.basename(filepath)[:-4]+'.meta'
             if path.exists(meta_filepath):
-                data2 = await aio.read_text(meta_filepath, asyn=asyn)
+                data2 = await aio.read_text(meta_filepath, context_vars=context_vars)
             else:
                 data2 = None
             return process(filepath, io.StringIO(data1), data2, show_progress=show_progress, **kwargs)
 
-read_csv_asyn.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'asyn' tells whether the function is invoked asynchronously or synchronously.\n''' + pd.read_csv.__doc__
+read_csv_asyn.__doc__ = '''An asyn function that read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'context_vars' is a dictionary of context variables within which the function runs. It must include `context_vars['async']` to tell whether to invoke the function asynchronously or not.\n''' + pd.read_csv.__doc__
 
 
 def read_csv(filepath, show_progress=False, **kwargs):
@@ -195,7 +195,7 @@ def read_csv(filepath, show_progress=False, **kwargs):
 read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.\n''' + pd.read_csv.__doc__
 
 
-async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress=False, asyn: bool = True, **kwargs):
+async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress=False, context_vars: dict = {}, **kwargs):
 
     # special treatment of fields introduced by function dfpack()
     for key in df:
@@ -228,7 +228,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                     if dirpath:
                         path.make_dirs(dirpath)
                     if not path.exists(dirpath):
-                        await aio.sleep(1, asyn=asyn)
+                        await aio.sleep(1, context_vars=context_vars)
 
                     zipdata = io.BytesIO()
                     with _zf.ZipFile(zipdata, mode='w') as myzip:
@@ -241,7 +241,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                         with myzip.open(filename[:-4]+'.meta', mode='w') as f: # meta
                             data = json.dumps(metadata(df))
                             f.write(data.encode())
-                    await aio.write_binary(filepath2, zipdata.getvalue(), asyn=asyn)
+                    await aio.write_binary(filepath2, zipdata.getvalue(), context_vars=context_vars)
                     if show_progress:
                         spinner.text = "saved metadata"
                     res = None
@@ -254,9 +254,9 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                     if dirpath:
                         path.make_dirs(dirpath)
                     if not path.exists(dirpath):
-                        await aio.sleep(1, asyn=asyn)
+                        await aio.sleep(1, context_vars=context_vars)
                     data = df.to_csv(None, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
-                    await aio.write_text(filepath2, data, asyn=asyn)
+                    await aio.write_text(filepath2, data, context_vars=context_vars)
                     res = None
                     if file_mode:  # chmod
                         path.chmod(filepath2, file_mode)
@@ -265,7 +265,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
 
                     # write the meta file
                     filepath3 = filepath[:-4]+'.meta'
-                    await aio.json_save(filepath3, metadata(df), asyn=asyn)
+                    await aio.json_save(filepath3, metadata(df), context_vars=context_vars)
                     try:
                         if file_mode:  # chmod
                             path.chmod(filepath3, file_mode)
@@ -274,10 +274,10 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                     if show_progress:
                         spinner.text = "saved metadata"
 
-                await path.remove_asyn(filepath, asyn=asyn)
+                await path.remove_asyn(filepath, context_vars=context_vars)
                 if path.exists(filepath) or not path.exists(filepath2):
-                    await aio.sleep(1, asyn=asyn)
-                await path.rename_asyn(filepath2, filepath, asyn=asyn)
+                    await aio.sleep(1, context_vars=context_vars)
+                await path.rename_asyn(filepath2, filepath, context_vars=context_vars)
 
                 if isinstance(spinner, Halo):
                     spinner.succeed("dfsaved '{}'".format(filepath))
@@ -289,7 +289,7 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                 spinner.succeed("failed to dfsave '{}'".format(filepath))
             raise
 
-to_csv_asyn.__doc__ = '''An asyn function that writes DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword 'asyn' tells whether the function is invoked asynchronously or synchronously. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + pd.DataFrame.to_csv.__doc__
+to_csv_asyn.__doc__ = '''An asyn function that writes DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword 'context_vars' is a dictionary of context variables within which the function runs. It must include `context_vars['async']` to tell whether to invoke the function asynchronously or not. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + pd.DataFrame.to_csv.__doc__
 
 
 def to_csv(df, filepath, index='auto', file_mode=0o664, show_progress=False, **kwargs):
