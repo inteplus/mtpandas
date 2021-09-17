@@ -195,7 +195,7 @@ def read_csv(filepath, show_progress=False, **kwargs):
 read_csv.__doc__ = '''Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.\n''' + pd.read_csv.__doc__
 
 
-async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress=False, context_vars: dict = {}, **kwargs):
+async def to_csv_asyn(df, filepath, index='auto', file_mode: int = 0o664, show_progress=False, context_vars: dict = {}, file_write_delayed: bool = False, **kwargs):
 
     # special treatment of fields introduced by function dfpack()
     for key in df:
@@ -241,12 +241,9 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                         with myzip.open(filename[:-4]+'.meta', mode='w') as f: # meta
                             data = json.dumps(metadata(df))
                             f.write(data.encode())
-                    await aio.write_binary(filepath2, zipdata.getvalue(), context_vars=context_vars)
+                    res = await aio.write_binary(filepath2, zipdata.getvalue(), file_mode=file_mode, context_vars=context_vars, file_write_delayed=file_write_delayed)
                     if show_progress:
                         spinner.text = "saved metadata"
-                    res = None
-                    if file_mode:  # chmod
-                        path.chmod(filepath2, file_mode)
                 else:
                     # write the csv file
                     filepath2 = filepath+'.tmp.csv'
@@ -256,21 +253,13 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                     if not path.exists(dirpath):
                         await aio.sleep(1, context_vars=context_vars)
                     data = df.to_csv(None, index=index, quoting=_csv.QUOTE_NONNUMERIC, **kwargs)
-                    await aio.write_text(filepath2, data, context_vars=context_vars)
-                    res = None
-                    if file_mode:  # chmod
-                        path.chmod(filepath2, file_mode)
+                    res = await aio.write_text(filepath2, data, file_mode=file_mode, context_vars=context_vars, file_write_delayed=file_write_delayed)
                     if show_progress:
                         spinner.text = "saved CSV content"
 
                     # write the meta file
                     filepath3 = filepath[:-4]+'.meta'
-                    await aio.json_save(filepath3, metadata(df), context_vars=context_vars)
-                    try:
-                        if file_mode:  # chmod
-                            path.chmod(filepath3, file_mode)
-                    except PermissionError:
-                        pass # for now
+                    await aio.json_save(filepath3, metadata(df), file_mode=file_mode, context_vars=context_vars)
                     if show_progress:
                         spinner.text = "saved metadata"
 
@@ -289,9 +278,9 @@ async def to_csv_asyn(df, filepath, index='auto', file_mode=0o664, show_progress
                 spinner.succeed("failed to dfsave '{}'".format(filepath))
             raise
 
-to_csv_asyn.__doc__ = '''An asyn function that writes DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword 'context_vars' is a dictionary of context variables within which the function runs. It must include `context_vars['async']` to tell whether to invoke the function asynchronously or not. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + pd.DataFrame.to_csv.__doc__
+to_csv_asyn.__doc__ = '''An asyn function that writes DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword 'context_vars' is a dictionary of context variables within which the function runs. Keyword 'file_write_delayed' (see :func:`mt.base.aio.files.write_binary`) is now acceptable. It must include `context_vars['async']` to tell whether to invoke the function asynchronously or not. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + pd.DataFrame.to_csv.__doc__
 
 
 def to_csv(df, filepath, index='auto', file_mode=0o664, show_progress=False, **kwargs):
     return aio.srun(to_csv_asyn, df, filepath, index=index, file_mode=file_mode, show_progress=show_progress, **kwargs)
-to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword argument 'show_progress' tells whether to show progress in the terminal. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + pd.DataFrame.to_csv.__doc__
+to_csv.__doc__ = '''Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'file_write_delayed' (see :func:`mt.base.aio.files.write_binary`) is now acceptable. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n''' + pd.DataFrame.to_csv.__doc__

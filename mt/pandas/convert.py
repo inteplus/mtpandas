@@ -269,7 +269,7 @@ def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert
     return aio.srun(dfload_asyn, df_filepath, *args, show_progress=show_progress, unpack=unpack, parquet_convert_ndarray_to_list=parquet_convert_ndarray_to_list, **kwargs)
 
 
-async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, context_vars: dict = {}, **kwargs):
+async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, context_vars: dict = {}, file_write_delayed: bool = False, **kwargs):
     '''An asyn function that saves a dataframe to a file based on the file's extension.
 
     Parameters
@@ -287,13 +287,17 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
+    file_write_delayed : bool
+        Only valid in asynchronous mode. If True, wraps the file write task into a future and
+        returns the future. In all other cases, proceeds as usual.
     kwargs : dict
         dictionary of keyword arguments to pass to the corresponding writer
 
     Returns
     -------
-    object
-        whatever the corresponding writer returns
+    asyncio.Future or int
+        either a future or the number of bytes written, depending on whether the file write
+        task is delayed or not
 
     Notes
     -----
@@ -326,9 +330,7 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
                     kwargs = kwargs.copy()
                     kwargs['use_deprecated_int96_timestamps'] = True # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
                 data = df.to_parquet(None, **kwargs)
-                res = await aio.write_binary(df_filepath, data, context_vars=context_vars)
-                if file_mode:  # chmod
-                    path.chmod(df_filepath, file_mode)
+                res = await aio.write_binary(df_filepath, data, file_mode=file_mode, context_vars=context_vars, file_write_delayed=file_write_delayed)
 
                 if show_progress:
                     spinner.succeed("dfsaved '{}'".format(filepath))

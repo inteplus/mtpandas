@@ -13,8 +13,8 @@ setup(
         'halo', # for showing some spinners
         'pandas>=1.2.3',  # for dataframes, and we need custom dtypes
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
-        'mtbase>=2.0',  # Minh-Tri's base modules for logging and multi-threading
-        'mtopencv>=1.0', # Minh-Tri's OpenCV wrapper so we can use cv.Image
+        'mtbase>=2.1',  # Minh-Tri's base modules for logging and multi-threading
+        'mtopencv>=1.1', # Minh-Tri's OpenCV wrapper so we can use cv.Image
         'tqdm', # for drawing progress bars
         'tabview', # for viewing spreadsheet-like files
     ],
