@@ -337,8 +337,8 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
                     df = dfpack(df, spinner=spinner)
 
                 kwargs = kwargs.copy()
-                if 'engine' not in kwargs:
-                    kwargs['engine'] = determine_parquet_engine()
+                #if 'engine' not in kwargs:
+                    #kwargs['engine'] = determine_parquet_engine()
                 if kwargs['engine'] != 'fastparquet' and not 'use_deprecated_int96_timestamps' in kwargs:
                     kwargs['use_deprecated_int96_timestamps'] = True # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
                 data = df.to_parquet(None, **kwargs)
