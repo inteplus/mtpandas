@@ -3,13 +3,14 @@
 
 '''View a '.csv', '.csv.zip', '.parquet' or tab-delimited file in a spreadsheet-like display.'''
 
+import asyncio
 import argparse
 import csv
 from io import BytesIO
 from tabview.tabview import view
 
 from mt import pd
-from mt.base import logger, s3
+from mt.base import logger
 
 async def main(args, context_vars: dict = {}):
     try:
