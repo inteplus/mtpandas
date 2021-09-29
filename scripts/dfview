@@ -3,18 +3,17 @@
 
 '''View a '.csv', '.csv.zip', '.parquet' or tab-delimited file in a spreadsheet-like display.'''
 
-import asyncio
 import argparse
 import csv
 from io import BytesIO
 from tabview.tabview import view
 
 from mt import pd
-from mt.base import logger
+from mt.base import logger, s3
 
-async def main(args):
+async def main(args, context_vars: dict = {}):
     try:
-        df = await pd.dfload_asyn(args.filepath, show_progress=True)
+        df = await pd.dfload_asyn(args.filepath, show_progress=True, context_vars=context_vars)
         if isinstance(args.max_rows, int):
             df = df[:args.max_rows]
             logger.info("Restricted to {} rows.".format(len(df)))
@@ -93,4 +92,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     start_pos = start_position(args.start_pos, [])
-    asyncio.run(main(args))
+    asyncio.run(main(args, context_vars={'async': True}))
