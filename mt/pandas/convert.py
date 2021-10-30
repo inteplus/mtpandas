@@ -6,60 +6,15 @@ from halo import Halo
 from mt import np, cv
 from mt.base import path, aio, dummy_scope
 from .csv import read_csv_asyn, to_csv_asyn
+from .dftype import get_dftype
 
 
-__all__ = ['dfload_asyn', 'dfload', 'dfsave_asyn', 'dfsave', 'get_dftype', 'dfpack', 'dfunpack']
+__all__ = ['dfload_asyn', 'dfload', 'dfsave_asyn', 'dfsave', 'dfpack', 'dfunpack']
 
 
 def array2list(x):
     '''Converts a nested numpy.ndarray object into a nested list object.'''
     return [array2list(y) for y in x] if isinstance(x, np.ndarray) and x.ndim == 1 else x
-
-
-def get_dftype(s):
-    '''Detects the dftype of the series.
-
-    Determine whether a series is an ndarray series or an Image series or a normal series.
-
-    Parameters
-    ----------
-    s : pandas.Series
-        the series to investigate
-
-    Returns
-    -------
-    {'ndarray', 'Image', 'object'}
-        the type of the series
-    '''
-    if len(s) == 0:
-        return 'object'
-
-    can_be_ndarray = True
-    can_be_Image = True
-    for x in s.tolist():
-        if x is None:
-            continue
-        if isinstance(x, np.ndarray):
-            can_be_Image = False
-            if not can_be_ndarray:
-                break
-            continue
-        if isinstance(x, cv.Image):
-            can_be_ndarray = False
-            if not can_be_Image:
-                break
-            continue
-        can_be_ndarray = False
-        can_be_Image = False
-        break
-
-    if can_be_ndarray:
-        return 'ndarray'
-
-    if can_be_Image:
-        return 'Image'
-
-    return 'object'
 
 
 def dfpack(df, spinner=None):
