@@ -1,3 +1,5 @@
+import pandas as pd
+
 from mt import np, cv
 
 
@@ -17,48 +19,66 @@ def get_dftype(s):
 
     Returns
     -------
-    {'ndarray', 'SparseNdarray', 'Image', 'object', etc}
+    {'json', 'ndarray', 'SparseNdarray', 'Image', 'str', 'Timestamp','Timedelta', 'object', 'none', etc}
         the type of the series. If it is a normal series, the string representing the dtype
         attribute of the series is returned
     '''
     if len(s) == 0:
         return 'object'
 
-    can_be_ndarray = True
-    can_be_SparseNdarray = True
-    can_be_Image = True
+    dftype = None
     for x in s.tolist():
-        if x is None:
+        if x is None or x is pd.NaT:
+            continue
+        if isinstance(x, str):
+            if dftype is None:
+                dftype = 'str'
+            elif dftype != 'str':
+                break
+            continue
+        if isinstance(x, (list, dict)):
+            if dftype is None:
+                dftype = 'json'
+            elif dftype != 'json':
+                break
             continue
         if isinstance(x, np.ndarray):
-            can_be_SparseNdarray = False
-            can_be_Image = False
-            if not can_be_ndarray:
+            if dftype is None:
+                dftype = 'ndarray'
+            elif dftype != 'ndarray':
                 break
             continue
         if isinstance(x, np.SparseNdarray):
-            can_be_ndarray = False
-            can_be_Image = False
-            if not can_be_SparseNdarray:
+            if dftype is None:
+                dftype = 'SparseNdarray'
+            elif dftype != 'SparseNdarray':
                 break
             continue
         if isinstance(x, cv.Image):
-            can_be_ndarray = False
-            can_be_SparseNdarray = False
-            if not can_be_Image:
+            if dftype is None:
+                dftype = 'Image'
+            elif dftype != 'Image':
                 break
             continue
-        can_be_ndarray = False
-        can_be_Image = False
+        if isinstance(x, pd.Timestamp):
+            if dftype is None:
+                dftype = 'Timestamp'
+            elif dftype != 'Timestamp':
+                break
+            continue
+        if isinstance(x, pd.Timedelta):
+            if dftype is None:
+                dftype = 'Timedelta'
+            elif dftype != 'Timedelta':
+                break
+            continue
+        dftype = 'object'
         break
 
-    if can_be_ndarray:
-        return 'ndarray'
+    if dftype is None:
+        return 'none'
 
-    if can_be_SparseNdarray:
-        return 'SparseNdarray'
-
-    if can_be_Image:
-        return 'Image'
+    if dftype != 'object':
+        return dftype
 
     return str(s.dtype)

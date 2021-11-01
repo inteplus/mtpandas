@@ -7,6 +7,7 @@ from mt import np, cv
 from mt.base import path, aio, dummy_scope
 from .csv import read_csv_asyn, to_csv_asyn
 from .dftype import get_dftype
+from .pdh5 import load_pdh5, save_pdh5
 
 
 __all__ = ['dfload_asyn', 'dfload', 'dfsave_asyn', 'dfsave', 'dfpack', 'dfunpack']
@@ -125,16 +126,20 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     show_progress : bool
         show a progress spinner in the terminal
     unpack : bool
-        whether or not to unpack the dataframe after loading
+        whether or not to unpack the dataframe after loading. Ignored for '.pdh5' format.
     parquet_convert_ndarray_to_list : bool
-        whether or not to convert 1D ndarrays in the loaded parquet table into Python lists
+        whether or not to convert 1D ndarrays in the loaded parquet table into Python lists.
+        Ignored for '.pdh5' format.
     args : list
-        list of positional arguments to pass to the corresponding reader
+        list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
+        format.
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
+        Ignored for '.pdh5' format.
     kwargs : dict
-        dictionary of keyword arguments to pass to the corresponding reader
+        dictionary of keyword arguments to pass to the corresponding reader. Ignored for '.pdh5'
+        format.
 
     Returns
     -------
@@ -143,7 +148,8 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
 
     Notes
     -----
-    For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we use :func:`pandas.read_parquet`.
+    For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we
+    use :func:`pandas.read_parquet`. For `.pdh5` files, we use :func:`mt.pandas.pdh5.load_pdh5`.
 
     Raises
     ------
@@ -152,6 +158,9 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     '''
 
     filepath = df_filepath.lower()
+
+    if filepath.endswith('.pdh5'):
+        return load_pdh5(df_filepath, show_progress=show_progress)
 
     if filepath.endswith('.parquet'):
         if show_progress:
@@ -209,13 +218,16 @@ def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert
     show_progress : bool
         show a progress spinner in the terminal
     unpack : bool
-        whether or not to unpack the dataframe after loading
+        whether or not to unpack the dataframe after loading. Ignored for '.pdh5' format.
     parquet_convert_ndarray_to_list : bool
-        whether or not to convert 1D ndarrays in the loaded parquet table into Python lists
+        whether or not to convert 1D ndarrays in the loaded parquet table into Python lists.
+        Ignored for '.pdh5' format.
     args : list
-        list of positional arguments to pass to the corresponding reader
+        list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
+        format.
     kwargs : dict
-        dictionary of keyword arguments to pass to the corresponding reader
+        dictionary of keyword arguments to pass to the corresponding reader. Ignored for '.pdh5'
+        format.
 
     Returns
     -------
@@ -224,7 +236,8 @@ def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert
 
     Notes
     -----
-    For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we use :func:`pandas.read_parquet`.
+    For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we
+    use :func:`pandas.read_parquet`. For `.pdh5` files, we use :func:`mt.pandas.pdh5.load_pdh5`.
 
     Raises
     ------
@@ -248,25 +261,29 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
     show_progress : bool
         show a progress spinner in the terminal
     pack : bool
-        whether or not to pack the dataframe before saving
+        whether or not to pack the dataframe before saving. Ignored for '.pdh5' format.
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
+        Ignored for '.pdh5' format.
     file_write_delayed : bool
         Only valid in asynchronous mode. If True, wraps the file write task into a future and
-        returns the future. In all other cases, proceeds as usual.
+        returns the future. In all other cases, proceeds as usual. Ignored for '.pdh5' format.
     kwargs : dict
-        dictionary of keyword arguments to pass to the corresponding writer
+        dictionary of keyword arguments to pass to the corresponding writer. Ignored for '.pdh5'
+        format.
 
     Returns
     -------
     asyncio.Future or int
         either a future or the number of bytes written, depending on whether the file write
-        task is delayed or not
+        task is delayed or not. For '.pdh5' format, 1 is returned.
 
     Notes
     -----
-    For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.to_csv`. For '.parquet' files, we use :func:`pandas.DataFrame.to_parquet`.
+    For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.to_csv`. For '.parquet' files, we
+    use :func:`pandas.DataFrame.to_parquet`. For '.pdh5' files, we use
+    :func:`mt.pandas.pdh5.save_pdh5`.
 
     Raises
     ------
@@ -278,6 +295,10 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
         raise TypeError("Input must be a pandas.DataFrame. Got '{}'.".format(type(df)))
 
     filepath = df_filepath.lower()
+
+    if filepath.endswith('.pdh5'):
+        save_pdh5(df_filepath, df, file_mode=file_mode, show_progress=show_progress)
+        return 1
 
     if filepath.endswith('.parquet'):
         if show_progress:
