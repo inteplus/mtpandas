@@ -109,13 +109,6 @@ def dfunpack(df, spinner=None):
     return df2
 
 
-def determine_parquet_engine():
-    try: # unlike pandas, we prioritise fastparquet over pyarrow
-        import fastparquet
-        return 'fastparquet'
-    except ImportError:
-        return 'auto'
-
 async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, context_vars: dict = {}, **kwargs):
     '''An asyn function that loads a dataframe file based on the file's extension.
 
@@ -172,9 +165,6 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
         with scope:
             try:
                 data = await aio.read_binary(df_filepath, context_vars=context_vars)
-                kwargs = kwargs.copy()
-                if not 'engine' in kwargs:
-                    kwargs['engine'] = 'fastparquet' # default fastparquet for fast read-speed. But watch out it cannot read cells representing 2D arrays
                 df = pd.read_parquet(io.BytesIO(data), *args, **kwargs)
 
                 if parquet_convert_ndarray_to_list:
@@ -313,9 +303,7 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
                     df = dfpack(df, spinner=spinner)
 
                 kwargs = kwargs.copy()
-                if 'engine' not in kwargs:
-                    kwargs['engine'] = 'pyarrow' # default pyarrow for backward compatibility during writing
-                if 'pyarrow' in kwargs and not 'use_deprecated_int96_timestamps' in kwargs:
+                if not 'use_deprecated_int96_timestamps' in kwargs:
                     kwargs['use_deprecated_int96_timestamps'] = True # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
                 data = df.to_parquet(None, **kwargs)
                 res = await aio.write_binary(df_filepath, data, file_mode=file_mode, context_vars=context_vars, file_write_delayed=file_write_delayed)
