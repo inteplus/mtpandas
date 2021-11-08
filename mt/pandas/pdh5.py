@@ -15,7 +15,73 @@ from mt.base.path import rename
 from .dftype import get_dftype
 
 
-__all__ = ['save_pdh5', 'load_pdh5']
+__all__ = ['save_pdh5', 'load_pdh5', 'Pdh5Cell']
+
+
+def load_special_cell(grp, key, dftype):
+    if dftype == 'ndarray':
+        return grp[key][:]
+    if dftype == 'SparseNdarray':
+        grp2 = grp.require_group(key)
+        dense_shape = tuple(json.loads(grp2.attrs['dense_shape']))
+        values = grp2['values'][:]
+        indices = grp2['indices'][:]
+        return np.SparseNdarray(values, indices, dense_shape)
+    if dftype == 'Image':
+        grp2 = grp.require_group(key)
+        pixel_format = grp2.attrs['pixel_format']
+        meta = json.loads(grp2.attrs['meta'])
+        image = grp2['image'][:]
+        return cv.Image(image, pixel_format=pixel_format, meta=meta)
+    raise ValueError("Unknown dftype while loading cells: '{}'.".format(dftype))
+
+
+class Pdh5Column:
+    '''A read-only column of a pdh5 file.'''
+    def __init__(self, filepath: str, col_id: str):
+        self.filepath = filepath
+        self.col_id = col_id
+        self.col = None
+        self.dftype = None
+        self.loaded = False
+
+    def get_item(self, row_id: int):
+        if not self.loaded:
+            f = h5py.File(self.filepath, mode='r')
+            columns = json.loads(f.attrs['columns'])
+            self.dftype = columns[self.col_id]
+            key = 'column_'+text_filename(self.col_id)
+            if self.dftype != 'none':
+                self.col = f[key]
+            self.loaded = True
+
+        if self.dftype == 'none':
+            return None
+        if self.dftype == 'json':
+            x = self.col[row_id]
+            return None if x == b'' else json.loads(x)
+        if self.dftype in ('ndarray', 'Image', 'SparseNdarray'):
+            key = str(row_id)
+            if not key in self.col:
+                return None
+            return load_special_cell(self.col, key, self.dftype)
+
+
+class Pdh5Cell:
+    '''A read-only cell of a pdh5 column.'''
+
+    def __init__(self, col: Pdh5Column, row_id: int):
+        self.col = col
+        self.row_id = row_id
+        self._value = None
+        self.loaded = False
+
+    @property
+    def value(self):
+        if not self.loaded:
+            self._value = self.col.get_item(self.row_id)
+            self.loaded = True
+        return self._value
 
 
 def save_pdh5_index(f: h5py.File, df: pd.DataFrame, spinner=None):
@@ -159,7 +225,7 @@ def load_pdh5_index(f: h5py.File, spinner=None):
     return pd.DataFrame(index=index)
 
 
-def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
+def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None, file_read_delayed: bool = False):
     columns = json.loads(f.attrs['columns'])
 
     for column in columns:
@@ -175,8 +241,12 @@ def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             df[column] = f[key][:]
         elif dftype == 'json':
-            df[column] = f[key][:]
-            df[column] = df[column].apply(lambda x: None if x == b'' else json.loads(x))
+            if file_read_delayed:
+                col = Pdh5Column(f.filename, column)
+                df[column] = [Pdh5Cell(col, i) for i in range(len(df.index))]
+            else:
+                df[column] = f[key][:]
+                df[column] = df[column].apply(lambda x: None if x == b'' else json.loads(x))
         elif dftype == 'Timestamp':
             df[column] = f[key][:]
             df[column] = df[column].apply(lambda x: pd.NaT if x == b'' else pd.Timestamp(x.decode()))
@@ -186,28 +256,17 @@ def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
         elif dftype in ('ndarray', 'Image', 'SparseNdarray'):
             data = [None]*len(df.index)
             grp = f.require_group(key)
+            if file_read_delayed:
+                col = Pdh5Column(f.filename, column)
             for key in grp.keys():
                 i = int(key)
-                if dftype == 'ndarray':
-                    data[i] = grp[key][:]
-                elif dftype == 'SparseNdarray':
-                    grp2 = grp.require_group(key)
-                    dense_shape = tuple(json.loads(grp2.attrs['dense_shape']))
-                    values = grp2['values'][:]
-                    indices = grp2['indices'][:]
-                    data[i] = np.SparseNdarray(values, indices, dense_shape)
-                elif dftype == 'Image':
-                    grp2 = grp.require_group(key)
-                    pixel_format = grp2.attrs['pixel_format']
-                    meta = json.loads(grp2.attrs['meta'])
-                    image = grp2['image'][:]
-                    data[i] = cv.Image(image, pixel_format=pixel_format, meta=meta)
+                data[i] = Pdh5Cell(col, i) if file_read_delayed else load_special_cell(grep, key, dftype)
             df[column] = data
         else:
             raise ValueError("Unable to load column '{}' with dftype '{}'.".format(column, dftype))
 
 
-def load_pdh5(filepath: str, show_progress: bool = False):
+def load_pdh5(filepath: str, show_progress: bool = False, file_read_delayed: bool = False):
     '''Loads the dataframe of a .pdh5 file.
 
     Parameters
@@ -216,6 +275,10 @@ def load_pdh5(filepath: str, show_progress: bool = False):
         path to the file to be read from
     show_progress : bool
         show a progress spinner in the terminal
+    file_read_delayed: bool
+        If True, columns of dftype 'json', 'ndarray', 'Image' and 'SparseNdarray' are proxied for
+        reading later, returning cells are instances of :class:`Pdh5Cell` instead. If False, these
+        columns are read thoroughly, which can be slow.
 
     Returns
     -------
@@ -231,7 +294,7 @@ def load_pdh5(filepath: str, show_progress: bool = False):
     try:
         with scope, h5py.File(filepath, 'r') as f:
             df = load_pdh5_index(f, spinner=spinner)
-            load_pdh5_columns(f, df, spinner=spinner)
+            load_pdh5_columns(f, df, spinner=spinner, file_read_delayed=file_read_delayed)
         if show_progress:
             spinner.succeed("dfloaded '{}'".format(filepath))
         return df

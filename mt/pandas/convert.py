@@ -7,10 +7,10 @@ from mt import np, cv
 from mt.base import path, aio, dummy_scope
 from .csv import read_csv_asyn, to_csv_asyn
 from .dftype import get_dftype
-from .pdh5 import load_pdh5, save_pdh5
+from .pdh5 import load_pdh5, save_pdh5, Pdh5Cell
 
 
-__all__ = ['dfload_asyn', 'dfload', 'dfsave_asyn', 'dfsave', 'dfpack', 'dfunpack']
+__all__ = ['dfload_asyn', 'dfload', 'dfsave_asyn', 'dfsave', 'dfpack', 'dfunpack', 'Pdh5Cell']
 
 
 def array2list(x):
@@ -109,7 +109,7 @@ def dfunpack(df, spinner=None):
     return df2
 
 
-async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, context_vars: dict = {}, **kwargs):
+async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, file_read_delayed: bool = False, context_vars: dict = {}, **kwargs):
     '''An asyn function that loads a dataframe file based on the file's extension.
 
     Parameters
@@ -123,6 +123,9 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     parquet_convert_ndarray_to_list : bool
         whether or not to convert 1D ndarrays in the loaded parquet table into Python lists.
         Ignored for '.pdh5' format.
+    file_read_delayed : bool
+        whether or not some columns can be delayed for reading later. Only valid for '.pdh5'
+        format.
     args : list
         list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
         format.
@@ -153,7 +156,7 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     filepath = df_filepath.lower()
 
     if filepath.endswith('.pdh5'):
-        return load_pdh5(df_filepath, show_progress=show_progress)
+        return load_pdh5(df_filepath, show_progress=show_progress, file_read_delayed=file_read_delayed, **kwargs)
 
     if filepath.endswith('.parquet'):
         if show_progress:
@@ -212,6 +215,9 @@ def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert
     parquet_convert_ndarray_to_list : bool
         whether or not to convert 1D ndarrays in the loaded parquet table into Python lists.
         Ignored for '.pdh5' format.
+    file_read_delayed : bool
+        whether or not some columns can be delayed for reading later. Only valid for '.pdh5'
+        format.
     args : list
         list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
         format.
@@ -287,7 +293,7 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
     filepath = df_filepath.lower()
 
     if filepath.endswith('.pdh5'):
-        save_pdh5(df_filepath, df, file_mode=file_mode, show_progress=show_progress)
+        save_pdh5(df_filepath, df, file_mode=file_mode, show_progress=show_progress, **kwargs)
         return 1
 
     if filepath.endswith('.parquet'):
