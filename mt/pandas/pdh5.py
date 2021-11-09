@@ -9,6 +9,9 @@ import pandas as pd
 import h5py
 from halo import Halo
 
+from pandarallel import pandarallel # for parallel saving and loading of pdh5 columns
+pandarallel.initialize()
+
 from mt import np, cv
 from mt.base.str import text_filename
 from mt.base.path import rename
@@ -135,16 +138,16 @@ def save_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
         if dftype == 'none':
             pass
         elif dftype == 'str':
-            data = df[column].apply(lambda x: '\0' if isnull(x) else x).to_numpy().astype('S')
+            data = df[column].parallel_apply(lambda x: '\0' if isnull(x) else x).to_numpy().astype('S')
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             data = df[column].to_numpy()
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype == 'json':
-            data = df[column].apply(lambda x: '\0' if isnull(x) else json.dumps(x)).to_numpy().astype('S')
+            data = df[column].parallel_apply(lambda x: '\0' if isnull(x) else json.dumps(x)).to_numpy().astype('S')
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('Timestamp', 'Timedelta'):
-            data = df[column].apply(lambda x: '\0' if isnull(x) else str(x)).to_numpy().astype('S')
+            data = df[column].parallel_apply(lambda x: '\0' if isnull(x) else str(x)).to_numpy().astype('S')
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('ndarray', 'Image', 'SparseNdarray'):
             data = df[column].tolist()
@@ -166,7 +169,7 @@ def save_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
                     grp2.attrs['meta'] = json.dumps(item.meta)
                     grp2.create_dataset('image', data=item.image, compression='gzip')
         else:
-            data = df[column].apply(lambda x: type(x)).unique()
+            data = df[column].parallel_apply(lambda x: type(x)).unique()
             raise ValueError("Unable to save column '{}' with type list '{}'.".format(column, data))
 
 
@@ -245,7 +248,7 @@ def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None, file_read_de
             df[column] = None
         elif dftype == 'str':
             df[column] = f[key][:]
-            df[column] = df[column].apply(lambda x: None if x == b'' else x.decode())
+            df[column] = df[column].parallel_apply(lambda x: None if x == b'' else x.decode())
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             df[column] = f[key][:]
         elif dftype == 'json':
@@ -254,13 +257,13 @@ def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None, file_read_de
                 df[column] = [Pdh5Cell(col, i) for i in range(len(df.index))]
             else:
                 df[column] = f[key][:]
-                df[column] = df[column].apply(lambda x: None if x == b'' else json.loads(x))
+                df[column] = df[column].parallel_apply(lambda x: None if x == b'' else json.loads(x))
         elif dftype == 'Timestamp':
             df[column] = f[key][:]
-            df[column] = df[column].apply(lambda x: pd.NaT if x == b'' else pd.Timestamp(x.decode()))
+            df[column] = df[column].parallel_apply(lambda x: pd.NaT if x == b'' else pd.Timestamp(x.decode()))
         elif dftype == 'Timedelta':
             df[column] = f[key][:]
-            df[column] = df[column].apply(lambda x: pd.NaT if x == b'' else pd.Timedelta(x.decode()))
+            df[column] = df[column].parallel_apply(lambda x: pd.NaT if x == b'' else pd.Timedelta(x.decode()))
         elif dftype in ('ndarray', 'Image', 'SparseNdarray'):
             data = [None]*len(df.index)
             grp = f.require_group(key)
