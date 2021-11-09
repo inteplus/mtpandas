@@ -9,9 +9,6 @@ import pandas as pd
 import h5py
 from halo import Halo
 
-from pandarallel import pandarallel # for parallel saving and loading of pdh5 columns
-pandarallel.initialize()
-
 from mt import np, cv
 from mt.base.str import text_filename
 from mt.base.path import rename
@@ -127,6 +124,8 @@ def save_pdh5_index(f: h5py.File, df: pd.DataFrame, spinner=None):
 
 
 def save_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
+    from .pandarallel import loaded
+
     columns = {x: get_dftype(df[x]) for x in df.columns}
     f.attrs['columns'] = json.dumps(columns)
 
@@ -237,6 +236,8 @@ def load_pdh5_index(f: h5py.File, spinner=None):
 
 
 def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None, file_read_delayed: bool = False):
+    from .pandarallel import loaded
+
     columns = json.loads(f.attrs['columns'])
 
     for column in columns:
