@@ -92,7 +92,7 @@ class Pdh5Cell:
         return self._value
 
 
-def save_pdh5_index(f: h5py.File, df: pd.DataFrame, spinner=None):
+def save_pdh5_index(f: h5py.File, df: pd.DataFrame, spinner=None, **kwargs):
     f.attrs['format'] = 'pdh5'
     f.attrs['version'] = '1.0'
     size = len(df)
