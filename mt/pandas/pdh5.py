@@ -18,6 +18,14 @@ from .dftype import get_dftype
 __all__ = ['save_pdh5', 'load_pdh5', 'Pdh5Cell']
 
 
+def isnull(obj):
+    if obj is None or obj is pd.NaT:
+        return True
+    if isinstance(obj, float) and np.isnan(obj):
+        return True
+    return False
+
+
 def load_special_cell(grp, key, dftype):
     if dftype == 'ndarray':
         return grp[key][:]
@@ -127,22 +135,22 @@ def save_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
         if dftype == 'none':
             pass
         elif dftype == 'str':
-            data = df[column].apply(lambda x: '\0' if x is None else x).to_numpy().astype('S')
+            data = df[column].apply(lambda x: '\0' if isnull(x) else x).to_numpy().astype('S')
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             data = df[column].to_numpy()
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype == 'json':
-            data = df[column].apply(lambda x: '\0' if x is None else json.dumps(x)).to_numpy().astype('S')
+            data = df[column].apply(lambda x: '\0' if isnull(x) else json.dumps(x)).to_numpy().astype('S')
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('Timestamp', 'Timedelta'):
-            data = df[column].apply(lambda x: '\0' if x in (None, pd.NaT) else str(x)).to_numpy().astype('S')
+            data = df[column].apply(lambda x: '\0' if isnull(x) else str(x)).to_numpy().astype('S')
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('ndarray', 'Image', 'SparseNdarray'):
             data = df[column].tolist()
             grp = f.create_group(key)
             for i, item in enumerate(data):
-                if item is None:
+                if isnull(item):
                     continue
                 key = str(i)
                 if dftype == 'ndarray':
