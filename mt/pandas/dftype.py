@@ -35,8 +35,10 @@ def get_dftype(s):
         return 'object'
 
     dftype = None
+    has_none = False
     for x in s.tolist():
         if isnull(x):
+            has_none = True
             continue
         if isinstance(x, str):
             if dftype is None:
@@ -88,5 +90,8 @@ def get_dftype(s):
 
     if dftype != 'object':
         return dftype
+
+    if pd.api.types.is_numeric_dtype(s):
+        return 'float64'
 
     return str(s.dtype)
