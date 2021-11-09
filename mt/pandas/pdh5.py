@@ -92,7 +92,7 @@ class Pdh5Cell:
         return self._value
 
 
-def save_pdh5_index(f: h5py.File, df: pd.DataFrame, spinner=None, **kwargs):
+def save_pdh5_index(f: h5py.File, df: pd.DataFrame, spinner=None):
     f.attrs['format'] = 'pdh5'
     f.attrs['version'] = '1.0'
     size = len(df)
@@ -172,7 +172,7 @@ def save_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
             raise ValueError("Unable to save column '{}' with type list '{}'.".format(column, data))
 
 
-def save_pdh5(filepath: str, df: pd.DataFrame, file_mode: Optional[int] = 0o664, show_progress: bool = False):
+def save_pdh5(filepath: str, df: pd.DataFrame, file_mode: Optional[int] = 0o664, show_progress: bool = False, **kwargs):
     '''Saves a dataframe into a .pdh5 file.
 
     Parameters
