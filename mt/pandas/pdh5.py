@@ -274,7 +274,7 @@ def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None, file_read_de
             raise ValueError("Unable to load column '{}' with dftype '{}'.".format(column, dftype))
 
 
-def load_pdh5(filepath: str, show_progress: bool = False, file_read_delayed: bool = False):
+def load_pdh5(filepath: str, show_progress: bool = False, file_read_delayed: bool = False, **kwargs):
     '''Loads the dataframe of a .pdh5 file.
 
     Parameters
