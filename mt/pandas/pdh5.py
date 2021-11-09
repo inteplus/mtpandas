@@ -12,18 +12,10 @@ from halo import Halo
 from mt import np, cv
 from mt.base.str import text_filename
 from mt.base.path import rename
-from .dftype import get_dftype
+from .dftype import isnull, get_dftype
 
 
 __all__ = ['save_pdh5', 'load_pdh5', 'Pdh5Cell']
-
-
-def isnull(obj):
-    if obj is None or obj is pd.NaT:
-        return True
-    if isinstance(obj, float) and np.isnan(obj):
-        return True
-    return False
 
 
 def load_special_cell(grp, key, dftype):

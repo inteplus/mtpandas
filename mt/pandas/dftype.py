@@ -3,7 +3,15 @@ import pandas as pd
 from mt import np, cv
 
 
-__all__ = ['get_dftype']
+__all__ = ['isnull', 'get_dftype']
+
+
+def isnull(obj):
+    if obj is None or obj is pd.NaT:
+        return True
+    if isinstance(obj, float) and np.isnan(obj):
+        return True
+    return False
 
 
 def get_dftype(s):
@@ -28,7 +36,7 @@ def get_dftype(s):
 
     dftype = None
     for x in s.tolist():
-        if x is None or x is pd.NaT:
+        if isnull(x):
             continue
         if isinstance(x, str):
             if dftype is None:
