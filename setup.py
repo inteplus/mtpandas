@@ -12,7 +12,6 @@ setup(
     install_requires=[
         'halo', # for showing some spinners
         'pandas>=1.2.3',  # for dataframes, and we need custom dtypes
-        'pandarallel', # for parallel apply in pandas
         'h5py>=3', # for pdh5 file format
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
         'mtbase>=2.5',  # Minh-Tri's base modules for logging and multi-threading
