@@ -89,4 +89,15 @@ def get_dftype(s):
     if dftype != 'object':
         return dftype
 
-    return str(s.dtype)
+    dftype = str(s.dtype)
+    if dftype != 'object':
+        return dftype
+
+    # one last attempt
+    types = s.apply(type).unique()
+    is_numeric = True
+    for x in types:
+        if not pd.api.types.is_numeric_dtype(x):
+            is_numeric = False
+            break
+    return 'float64' if is_numeric else 'object'
