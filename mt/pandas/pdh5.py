@@ -6,7 +6,6 @@ import os
 import json
 from contextlib import nullcontext
 import pandas as pd
-import h5py
 from io import BytesIO
 from halo import Halo
 from joblib import Parallel, delayed
@@ -49,6 +48,7 @@ class Pdh5Column:
 
     def get_item(self, row_id: int):
         if not self.loaded:
+            import h5py
             f = h5py.File(self.filepath, mode='r')
             columns = json.loads(f.attrs['columns'])
             self.dftype = columns[self.col_id]
@@ -86,7 +86,7 @@ class Pdh5Cell:
         return self._value
 
 
-def save_pdh5_index(f: h5py.File, df: pd.DataFrame, spinner=None):
+def save_pdh5_index(f, df: pd.DataFrame, spinner=None):
     f.attrs['format'] = 'pdh5'
     f.attrs['version'] = '1.0'
     size = len(df)
@@ -117,7 +117,7 @@ def save_pdh5_index(f: h5py.File, df: pd.DataFrame, spinner=None):
         raise ValueError("Unsupported index type '{}'.".format(type(index)))
 
 
-def save_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
+def save_pdh5_columns(f, df: pd.DataFrame, spinner=None):
     columns = {x: get_dftype(df[x]) for x in df.columns}
     f.attrs['columns'] = json.dumps(columns)
 
@@ -185,6 +185,7 @@ def save_pdh5(filepath: str, df: pd.DataFrame, file_mode: Optional[int] = 0o664,
         spinner = None
         scope = nullcontext()
     try:
+        import h5py
         filepath2 = filepath+'.mttmp'
         with scope, h5py.File(filepath2, 'w') as f:
             save_pdh5_index(f, df, spinner=spinner)
@@ -200,7 +201,7 @@ def save_pdh5(filepath: str, df: pd.DataFrame, file_mode: Optional[int] = 0o664,
         raise
 
 
-def load_pdh5_index(f: h5py.File, spinner=None):
+def load_pdh5_index(f, spinner=None):
     if f.attrs['format'] != 'pdh5':
         raise ValueError("Input file does not have 'pdh5' format.")
     size = f.attrs['size']
@@ -227,7 +228,7 @@ def load_pdh5_index(f: h5py.File, spinner=None):
     return pd.DataFrame(index=index)
 
 
-def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None, file_read_delayed: bool = False):
+def load_pdh5_columns(f, df: pd.DataFrame, spinner=None, file_read_delayed: bool = False):
     columns = json.loads(f.attrs['columns'])
 
     for column in columns:
@@ -297,6 +298,7 @@ async def load_pdh5_asyn(filepath: str, show_progress: bool = False, file_read_d
         spinner = None
         scope = nullcontext()
     try:
+        import h5py
         if file_read_delayed:
             my_file = filepath
         else:
