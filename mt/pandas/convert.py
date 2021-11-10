@@ -7,7 +7,7 @@ from mt import np, cv
 from mt.base import path, aio, dummy_scope
 from .csv import read_csv_asyn, to_csv_asyn
 from .dftype import get_dftype
-from .pdh5 import load_pdh5, save_pdh5, Pdh5Cell
+from .pdh5 import load_pdh5_asyn, save_pdh5, Pdh5Cell
 
 
 __all__ = ['dfload_asyn', 'dfload', 'dfsave_asyn', 'dfsave', 'dfpack', 'dfunpack', 'Pdh5Cell']
@@ -145,7 +145,7 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     Notes
     -----
     For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we
-    use :func:`pandas.read_parquet`. For `.pdh5` files, we use :func:`mt.pandas.pdh5.load_pdh5`.
+    use :func:`pandas.read_parquet`. For `.pdh5` files, we use :func:`mt.pandas.pdh5.load_pdh5_asyn`.
 
     Raises
     ------
@@ -156,7 +156,7 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     filepath = df_filepath.lower()
 
     if filepath.endswith('.pdh5'):
-        return load_pdh5(df_filepath, show_progress=show_progress, file_read_delayed=file_read_delayed, **kwargs)
+        return await load_pdh5_asyn(df_filepath, show_progress=show_progress, file_read_delayed=file_read_delayed, context_vars=context_vars, **kwargs)
 
     if filepath.endswith('.parquet'):
         if show_progress:
@@ -233,7 +233,7 @@ def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert
     Notes
     -----
     For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we
-    use :func:`pandas.read_parquet`. For `.pdh5` files, we use :func:`mt.pandas.pdh5.load_pdh5`.
+    use :func:`pandas.read_parquet`. For `.pdh5` files, we use :func:`mt.pandas.pdh5.load_pdh5_asyn`.
 
     Raises
     ------

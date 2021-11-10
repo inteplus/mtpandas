@@ -7,15 +7,16 @@ import json
 from contextlib import nullcontext
 import pandas as pd
 import h5py
+from io import BytesIO
 from halo import Halo
 
 from mt import np, cv
+from mt.base import aio, path
 from mt.base.str import text_filename
-from mt.base.path import rename
 from .dftype import isnull, get_dftype
 
 
-__all__ = ['save_pdh5', 'load_pdh5', 'Pdh5Cell']
+__all__ = ['save_pdh5', 'load_pdh5_asyn', 'Pdh5Cell']
 
 
 def load_special_cell(grp, key, dftype):
@@ -191,7 +192,7 @@ def save_pdh5(filepath: str, df: pd.DataFrame, file_mode: Optional[int] = 0o664,
             save_pdh5_columns(f, df, spinner=spinner)
         if file_mode is not None:  # chmod
             os.chmod(filepath2, file_mode)
-        rename(filepath2, filepath, overwrite=True)
+        path.rename(filepath2, filepath, overwrite=True)
         if show_progress:
             spinner.succeed("dfsaved '{}'".format(filepath))
     except:
@@ -270,7 +271,7 @@ def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None, file_read_de
             raise ValueError("Unable to load column '{}' with dftype '{}'.".format(column, dftype))
 
 
-def load_pdh5(filepath: str, show_progress: bool = False, file_read_delayed: bool = False, **kwargs):
+async def load_pdh5_asyn(filepath: str, show_progress: bool = False, file_read_delayed: bool = False, context_vars: dict = {}, **kwargs):
     '''Loads the dataframe of a .pdh5 file.
 
     Parameters
@@ -283,6 +284,10 @@ def load_pdh5(filepath: str, show_progress: bool = False, file_read_delayed: boo
         If True, columns of dftype 'json', 'ndarray', 'Image' and 'SparseNdarray' are proxied for
         reading later, returning cells are instances of :class:`Pdh5Cell` instead. If False, these
         columns are read thoroughly, which can be slow.
+    context_vars : dict
+        a dictionary of context variables within which the function runs. It must include
+        `context_vars['async']` to tell whether to invoke the function asynchronously or not.
+        Ignored for '.pdh5' format.
 
     Returns
     -------
@@ -296,6 +301,11 @@ def load_pdh5(filepath: str, show_progress: bool = False, file_read_delayed: boo
         spinner = None
         scope = nullcontext()
     try:
+        if file_read_delayed:
+            my_file = filepath
+        else:
+            data = await aio.read_binary(filepath, context_vars=context_vars)
+            my_file = BytesIO(data)
         with scope, h5py.File(filepath, 'r') as f:
             df = load_pdh5_index(f, spinner=spinner)
             load_pdh5_columns(f, df, spinner=spinner, file_read_delayed=file_read_delayed)
