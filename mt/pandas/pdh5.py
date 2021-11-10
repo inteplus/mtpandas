@@ -8,7 +8,6 @@ from contextlib import nullcontext
 import pandas as pd
 from io import BytesIO
 from halo import Halo
-from joblib import Parallel, delayed
 
 from mt import np, cv
 from mt.base import aio, path
