@@ -19,6 +19,13 @@ from .dftype import isnull, get_dftype
 __all__ = ['save_pdh5', 'load_pdh5_asyn', 'Pdh5Cell']
 
 
+def parallel_apply(s: pd.Series, func):
+    '''Applies the function on every element of a series.'''
+    from joblib import Parallel, delayed
+    data = Parallel()(delayed(func)(x) for x in s.array)
+    return pd.Series(index=s.index, data=data)
+
+
 def load_special_cell(grp, key, dftype):
     if dftype == 'ndarray':
         return grp[key][:]
@@ -130,16 +137,16 @@ def save_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
         if dftype == 'none':
             pass
         elif dftype == 'str':
-            data = df[column].parallel_apply(lambda x: '\0' if isnull(x) else x).to_numpy().astype('S')
+            data = parallel_apply(df[column], lambda x: '\0' if isnull(x) else x).to_numpy().astype('S')
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             data = df[column].astype(dftype).to_numpy()
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype == 'json':
-            data = df[column].parallel_apply(lambda x: '\0' if isnull(x) else json.dumps(x)).to_numpy().astype('S')
+            data = parallel_apply(df[column], lambda x: '\0' if isnull(x) else json.dumps(x)).to_numpy().astype('S')
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('Timestamp', 'Timedelta'):
-            data = df[column].parallel_apply(lambda x: '\0' if isnull(x) else str(x)).to_numpy().astype('S')
+            data = parallel_apply(df[column], lambda x: '\0' if isnull(x) else str(x)).to_numpy().astype('S')
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('ndarray', 'Image', 'SparseNdarray'):
             data = df[column].tolist()
@@ -161,7 +168,7 @@ def save_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
                     grp2.attrs['meta'] = json.dumps(item.meta)
                     grp2.create_dataset('image', data=item.image, compression='gzip')
         else:
-            data = df[column].parallel_apply(lambda x: type(x)).unique()
+            data = parallel_apply(df[column], lambda x: type(x)).unique()
             raise ValueError("Unable to save column '{}' with type list '{}'.".format(column, data))
 
 
@@ -242,7 +249,7 @@ def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None, file_read_de
             df[column] = None
         elif dftype == 'str':
             df[column] = f[key][:]
-            df[column] = df[column].parallel_apply(lambda x: None if x == b'' else x.decode())
+            df[column] = parallel_apply(df[column], lambda x: None if x == b'' else x.decode())
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             df[column] = f[key][:]
         elif dftype == 'json':
@@ -251,13 +258,13 @@ def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None, file_read_de
                 df[column] = [Pdh5Cell(col, i) for i in range(len(df.index))]
             else:
                 df[column] = f[key][:]
-                df[column] = df[column].parallel_apply(lambda x: None if x == b'' else json.loads(x))
+                df[column] = parallel_apply(df[column], lambda x: None if x == b'' else json.loads(x))
         elif dftype == 'Timestamp':
             df[column] = f[key][:]
-            df[column] = df[column].parallel_apply(lambda x: pd.NaT if x == b'' else pd.Timestamp(x.decode()))
+            df[column] = parallel_apply(df[column], lambda x: pd.NaT if x == b'' else pd.Timestamp(x.decode()))
         elif dftype == 'Timedelta':
             df[column] = f[key][:]
-            df[column] = df[column].parallel_apply(lambda x: pd.NaT if x == b'' else pd.Timedelta(x.decode()))
+            df[column] = parallel_apply(df[column], lambda x: pd.NaT if x == b'' else pd.Timedelta(x.decode()))
         elif dftype in ('ndarray', 'Image', 'SparseNdarray'):
             data = [None]*len(df.index)
             grp = f.require_group(key)
