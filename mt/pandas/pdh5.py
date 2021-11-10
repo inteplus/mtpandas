@@ -20,13 +20,6 @@ from .dftype import isnull, get_dftype
 __all__ = ['save_pdh5', 'load_pdh5_asyn', 'Pdh5Cell']
 
 
-def parallel_apply(s: pd.Series, func):
-    '''Applies the function on every element of a series.'''
-    from joblib import Parallel, delayed
-    data = Parallel()(delayed(func)(x) for x in s.array)
-    return pd.Series(index=s.index, data=data)
-
-
 def load_special_cell(grp, key, dftype):
     if dftype == 'ndarray':
         return grp[key][:]
@@ -254,9 +247,7 @@ def load_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None, file_read_de
                 col = Pdh5Column(f.filename, column)
                 df[column] = [Pdh5Cell(col, i) for i in range(len(df.index))]
             else:
-                print(1)
-                df[column] = [None if x == b'' else json.loads(x) for x in f[key]]
-                print(2)
+                df[column] = [None if x == b'' else json.loads(x) for x in f[key]] # slower than loading everything to memory but requires less memory to process
         elif dftype == 'Timestamp':
             df[column] = f[key][:]
             df[column] = df[column].apply(lambda x: pd.NaT if x == b'' else pd.Timestamp(x.decode()))
