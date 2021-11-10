@@ -20,6 +20,13 @@ from .dftype import isnull, get_dftype
 __all__ = ['save_pdh5', 'load_pdh5_asyn', 'Pdh5Cell']
 
 
+def parallel_apply(s: pd.Series, func):
+    '''Applies the function on every element of a series.'''
+    from joblib import Parallel, delayed
+    data = Parallel()(delayed(func)(x) for x in s.array)
+    return pd.Series(index=s.index, data=data)
+
+
 def load_special_cell(grp, key, dftype):
     if dftype == 'ndarray':
         return grp[key][:]
@@ -132,7 +139,7 @@ def save_pdh5_columns(f: h5py.File, df: pd.DataFrame, spinner=None):
             data = df[column].apply(lambda x: '\0' if isnull(x) else x).to_numpy().astype('S')
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
-            data = df[column].to_numpy()
+            data = df[column].astype(dftype).to_numpy()
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype == 'json':
             data = df[column].apply(lambda x: '\0' if isnull(x) else json.dumps(x)).to_numpy().astype('S')
