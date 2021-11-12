@@ -109,7 +109,7 @@ def dfunpack(df, spinner=None):
     return df2
 
 
-async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, file_read_delayed: bool = False, context_vars: dict = {}, **kwargs):
+async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, file_read_delayed: bool = False, max_rows: Optional[int] = None, context_vars: dict = {}, **kwargs):
     '''An asyn function that loads a dataframe file based on the file's extension.
 
     Parameters
@@ -126,6 +126,8 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     file_read_delayed : bool
         whether or not some columns can be delayed for reading later. Only valid for '.pdh5'
         format.
+    max_rows : int, optional
+        limit the maximum number of rows to read. Only valid for '.pdh5' format.
     args : list
         list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
         format.
@@ -156,7 +158,7 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     filepath = df_filepath.lower()
 
     if filepath.endswith('.pdh5'):
-        return await load_pdh5_asyn(df_filepath, show_progress=show_progress, file_read_delayed=file_read_delayed, context_vars=context_vars, **kwargs)
+        return await load_pdh5_asyn(df_filepath, show_progress=show_progress, file_read_delayed=file_read_delayed, max_rows=max_rows, context_vars=context_vars, **kwargs)
 
     if filepath.endswith('.parquet'):
         if show_progress:

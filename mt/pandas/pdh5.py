@@ -200,7 +200,7 @@ def save_pdh5(filepath: str, df: pd.DataFrame, file_mode: Optional[int] = 0o664,
         raise
 
 
-def load_pdh5_index(f, spinner=None):
+def load_pdh5_index(f, spinner=None, max_rows: Optional[int] = None) -> pd.DataFrame:
     if f.attrs['format'] != 'pdh5':
         raise ValueError("Input file does not have 'pdh5' format.")
     size = f.attrs['size']
@@ -215,11 +215,16 @@ def load_pdh5_index(f, spinner=None):
         start = grp.attrs.get('start', None)
         stop = grp.attrs.get('stop', None)
         step = grp.attrs.get('step', None)
+        if stop is not None and start is not None and step is not None and max_rows is not None:
+            stop = start+step*max_rows
         name = grp.attrs.get('name', None)
         index = pd.RangeIndex(start=start, stop=stop, step=step, name=name)
     elif index_type in ('Int64Index', 'UInt64Index', 'Float64Index'):
         name = grp.attrs.get('name', None)
-        values = grp['values'][:]
+        if max_rows is None:
+            values = grp['values'][:]
+        else:
+            values = grp['values'][:max_rows]
         index = getattr(pd, index_type)(data=values, name=name)
     else:
         raise ValueError("Unsupported index type '{}'.".format(type(index)))
@@ -227,8 +232,11 @@ def load_pdh5_index(f, spinner=None):
     return pd.DataFrame(index=index)
 
 
-def load_pdh5_columns(f, df: pd.DataFrame, spinner=None, file_read_delayed: bool = False):
+def load_pdh5_columns(f, df: pd.DataFrame, spinner=None, file_read_delayed: bool = False, max_rows: Optional[int] = None):
     columns = json.loads(f.attrs['columns'])
+    size = len(df.index)
+    if max_rows is not None:
+        size = min(size, max_rows)
 
     for column in columns:
         if spinner is not None:
@@ -238,36 +246,38 @@ def load_pdh5_columns(f, df: pd.DataFrame, spinner=None, file_read_delayed: bool
         if dftype == 'none':
             df[column] = None
         elif dftype == 'str':
-            df[column] = f[key][:]
+            df[column] = f[key][:size]
             df[column] = df[column].apply(lambda x: None if x == b'' else x.decode())
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
-            df[column] = f[key][:]
+            df[column] = f[key][:size]
         elif dftype == 'json':
             if file_read_delayed:
                 col = Pdh5Column(f.filename, column)
-                df[column] = [Pdh5Cell(col, i) for i in range(len(df.index))]
+                df[column] = [Pdh5Cell(col, i) for i in range(size)]
             else:
-                df[column] = [None if x == b'' else json.loads(x) for x in f[key]] # slower than loading everything to memory but requires less memory to process
+                d = f[key]
+                df[column] = [None if d[i] == b'' else json.loads(d[i]) for i in range(size)] # slower than loading everything to memory but requires less memory to process
         elif dftype == 'Timestamp':
-            df[column] = f[key][:]
+            df[column] = f[key][:size]
             df[column] = df[column].apply(lambda x: pd.NaT if x == b'' else pd.Timestamp(x.decode()))
         elif dftype == 'Timedelta':
-            df[column] = f[key][:]
+            df[column] = f[key][:size]
             df[column] = df[column].apply(lambda x: pd.NaT if x == b'' else pd.Timedelta(x.decode()))
         elif dftype in ('ndarray', 'Image', 'SparseNdarray'):
-            data = [None]*len(df.index)
+            data = [None]*size
             grp = f.require_group(key)
             if file_read_delayed:
                 col = Pdh5Column(f.filename, column)
             for key in grp.keys():
                 i = int(key)
-                data[i] = Pdh5Cell(col, i) if file_read_delayed else load_special_cell(grep, key, dftype)
+                if i < size:
+                    data[i] = Pdh5Cell(col, i) if file_read_delayed else load_special_cell(grep, key, dftype)
             df[column] = data
         else:
             raise ValueError("Unable to load column '{}' with dftype '{}'.".format(column, dftype))
 
 
-async def load_pdh5_asyn(filepath: str, show_progress: bool = False, file_read_delayed: bool = False, context_vars: dict = {}, **kwargs):
+async def load_pdh5_asyn(filepath: str, show_progress: bool = False, file_read_delayed: bool = False, max_rows: Optional[int] = None, context_vars: dict = {}, **kwargs) -> pd.DataFrame:
     '''Loads the dataframe of a .pdh5 file.
 
     Parameters
@@ -280,6 +290,8 @@ async def load_pdh5_asyn(filepath: str, show_progress: bool = False, file_read_d
         If True, columns of dftype 'json', 'ndarray', 'Image' and 'SparseNdarray' are proxied for
         reading later, returning cells are instances of :class:`Pdh5Cell` instead. If False, these
         columns are read thoroughly, which can be slow.
+    max_rows : int, optional
+        limit the maximum number of rows to be read from the file
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
@@ -304,8 +316,8 @@ async def load_pdh5_asyn(filepath: str, show_progress: bool = False, file_read_d
             data = await aio.read_binary(filepath, context_vars=context_vars)
             my_file = BytesIO(data)
         with scope, h5py.File(filepath, 'r') as f:
-            df = load_pdh5_index(f, spinner=spinner)
-            load_pdh5_columns(f, df, spinner=spinner, file_read_delayed=file_read_delayed)
+            df = load_pdh5_index(f, spinner=spinner, max_rows=max_rows)
+            load_pdh5_columns(f, df, spinner=spinner, file_read_delayed=file_read_delayed, max_rows=max_rows)
         if show_progress:
             spinner.succeed("dfloaded '{}'".format(filepath))
         return df
