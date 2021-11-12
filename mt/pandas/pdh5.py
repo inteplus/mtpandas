@@ -128,7 +128,8 @@ def save_pdh5_columns(f, df: pd.DataFrame, spinner=None):
         if dftype == 'none':
             pass
         elif dftype == 'str':
-            data = df[column].apply(lambda x: '\0' if isnull(x) else x).to_numpy().astype('S')
+            import h5py
+            data = df[column].apply(lambda x: '\0' if isnull(x) else x).to_numpy().astype(h5py.string_dtype())
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             data = df[column].astype(dftype).to_numpy()
@@ -247,7 +248,7 @@ def load_pdh5_columns(f, df: pd.DataFrame, spinner=None, file_read_delayed: bool
             df[column] = None
         elif dftype == 'str':
             df[column] = f[key][:size]
-            df[column] = df[column].apply(lambda x: None if x == b'' else x.decode())
+            df[column] = df[column].apply(lambda x: None if x in (b'', '') else x.decode() if istype(x, bytes) else x)
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             df[column] = f[key][:size]
         elif dftype == 'json':
