@@ -1,3 +1,5 @@
+from typing import Optional
+
 import io
 import json
 import pandas as pd
