@@ -128,8 +128,11 @@ def save_pdh5_columns(f, df: pd.DataFrame, spinner=None):
         if dftype == 'none':
             pass
         elif dftype == 'str':
+            # If we save in 'S' dtype, it cannot deal with non-ascii characters.
+            # If we save in h5py.string_dtype() dtype, we get "VLEN strings do not support embedded NULLs".
+            # What should we do?
             import h5py
-            data = df[column].apply(lambda x: '\0' if isnull(x) else x).to_numpy().astype(h5py.string_dtype())
+            data = df[column].apply(lambda x: 'None_NaT_NaN' if isnull(x) else x).to_numpy().astype(h5py.string_dtype())
             f.create_dataset(key, data=data, compression='gzip')
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             data = df[column].astype(dftype).to_numpy()
@@ -248,7 +251,7 @@ def load_pdh5_columns(f, df: pd.DataFrame, spinner=None, file_read_delayed: bool
             df[column] = None
         elif dftype == 'str':
             df[column] = f[key][:size]
-            df[column] = df[column].apply(lambda x: None if x in (b'', '') else x.decode() if istype(x, bytes) else x)
+            df[column] = df[column].apply(lambda x: None if x in (b'', 'None_NaT_NaN') else x.decode() if istype(x, bytes) else x)
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             df[column] = f[key][:size]
         elif dftype == 'json':
