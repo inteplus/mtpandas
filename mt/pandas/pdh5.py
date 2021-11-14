@@ -251,7 +251,7 @@ def load_pdh5_columns(f, df: pd.DataFrame, spinner=None, file_read_delayed: bool
             df[column] = None
         elif dftype == 'str':
             df[column] = f[key][:size]
-            df[column] = df[column].apply(lambda x: None if x in (b'', 'None_NaT_NaN') else x.decode() if isinstance(x, bytes) else x)
+            df[column] = df[column].apply(lambda x: None if x in (b'', b'None_NaT_NaN') else x.decode() if isinstance(x, bytes) else x)
         elif dftype in ('bool', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'float32', 'int64', 'uint64', 'float64'):
             df[column] = f[key][:size]
         elif dftype == 'json':
