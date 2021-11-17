@@ -275,7 +275,7 @@ def load_pdh5_columns(f, df: pd.DataFrame, spinner=None, file_read_delayed: bool
             for key in grp.keys():
                 i = int(key)
                 if i < size:
-                    data[i] = Pdh5Cell(col, i) if file_read_delayed else load_special_cell(grep, key, dftype)
+                    data[i] = Pdh5Cell(col, i) if file_read_delayed else load_special_cell(grp, key, dftype)
             df[column] = data
         else:
             raise ValueError("Unable to load column '{}' with dftype '{}'.".format(column, dftype))
