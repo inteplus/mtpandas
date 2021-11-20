@@ -4,3 +4,4 @@ from .series import *
 from .dataframe import *
 from .dftype import *
 from .convert import *
+from .dataclass import *

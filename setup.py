@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
 
 from setuptools import setup, find_namespace_packages
+from packaging import version as pv
 from mt.pandas.version import version
+
+import platform
+py_ver = platform.python_version()
+
+if pv.parse(py_ver) < pv.parse('3.7'):
+    dependencies = ['dataclasses']
+else:
+    dependencies = []
 
 setup(
     name='mtpandas',
@@ -9,7 +18,7 @@ setup(
     description="MT's extra modules for pandas.",
     author=["Minh-Tri Pham"],
     packages=find_namespace_packages(include=['mt.*']),
-    install_requires=[
+    install_requires=dependencies + [
         'halo', # for showing some spinners
         'pandas>=1.2.3',  # for dataframes, and we need custom dtypes
         #'h5py>=3', # for pdh5 file format. Lazy import because TX2 may not need it.
