@@ -20,7 +20,7 @@ setup(
     packages=find_namespace_packages(include=['mt.*']),
     install_requires=dependencies + [
         'halo', # for showing some spinners
-        'pandas>=1.2.3',  # for dataframes, and we need custom dtypes
+        'pandas',  # for dataframes, and we need custom dtypes
         #'h5py>=3', # for pdh5 file format. Lazy import because TX2 may not need it.
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
         'mtbase>=2.5',  # Minh-Tri's base modules for logging and multi-threading
