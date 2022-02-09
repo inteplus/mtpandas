@@ -23,7 +23,7 @@ setup(
         'pandas',  # for dataframes, and we need custom dtypes
         #'h5py>=3', # for pdh5 file format. Lazy import because TX2 may not need it.
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
-        'mtbase>=2.5',  # Minh-Tri's base modules for logging and multi-threading
+        'mtbase>=2.11',  # Minh-Tri's base modules for logging and multi-threading
         'mtopencv>=1.1', # Minh-Tri's OpenCV wrapper so we can use cv.Image
         'tqdm', # for drawing progress bars
         'tabview', # for viewing spreadsheet-like files
