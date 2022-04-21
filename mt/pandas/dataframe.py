@@ -1,14 +1,14 @@
 '''Additional utilities dealing with dataframes.'''
 
 
-import pandas as _pd
+import pandas as pd
 from tqdm import tqdm
 
 
-__all__ = ['rename_column', 'row_apply']
+__all__ = ['rename_column', 'row_apply', 'warn_duplicate_records']
 
 
-def rename_column(df, old_column, new_column):
+def rename_column(df: pd.DataFrame, old_column: str, new_column:str) -> bool:
     '''Renames a column in a dataframe.
 
     Parameters
@@ -34,7 +34,7 @@ def rename_column(df, old_column, new_column):
     return True
 
 
-def row_apply(df: _pd.DataFrame, func, bar_unit='it') -> _pd.DataFrame:
+def row_apply(df: pd.DataFrame, func, bar_unit='it') -> pd.DataFrame:
     '''Applies a function on every row of a pandas.DataFrame, optionally with a progress bar.
 
     Parameters
@@ -65,3 +65,26 @@ def row_apply(df: _pd.DataFrame, func, bar_unit='it') -> _pd.DataFrame:
     with bar:
         return df.apply(func2, axis=1)
 
+
+def warn_duplicate_records(df: pd.DataFrame, keys: list, logger=None):
+    '''Warns of duplicate records in the dataframe based on a list of keys.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        a dataframe
+    keys : list
+        list of column names
+    logger : logging.Logger, optional
+        logger to warn if duplicate records are detected
+    '''
+    if not logger:
+        return
+
+    cnt0 = len(df)
+    if not isinstance(keys, list):
+        keys = [keys]
+    cnt1 = len(df[keys].drop_duplicates())
+    if cnt1 < cnt0:
+        logger.warning("Detected {} duplicate records in the dataframe of {} records.".format(
+            cnt0-cnt1, cnt0))
