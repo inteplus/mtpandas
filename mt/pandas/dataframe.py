@@ -66,7 +66,11 @@ def row_apply(df: pd.DataFrame, func, bar_unit='it') -> pd.DataFrame:
         return df.apply(func2, axis=1)
 
 
-def warn_duplicate_records(df: pd.DataFrame, keys: list, logger=None):
+def warn_duplicate_records(
+        df: pd.DataFrame,
+        keys: list,
+        msg_format: str = "Detected {dup_cnt}/{rec_cnt} duplicate records.",
+        logger=None):
     '''Warns of duplicate records in the dataframe based on a list of keys.
 
     Parameters
@@ -75,6 +79,8 @@ def warn_duplicate_records(df: pd.DataFrame, keys: list, logger=None):
         a dataframe
     keys : list
         list of column names
+    msg_format : str, optional
+        the message to be logged. Two keyword arguments will be provided 'rec_cnt' and 'dup_cnt'.
     logger : logging.Logger, optional
         logger to warn if duplicate records are detected
     '''
@@ -86,5 +92,4 @@ def warn_duplicate_records(df: pd.DataFrame, keys: list, logger=None):
         keys = [keys]
     cnt1 = len(df[keys].drop_duplicates())
     if cnt1 < cnt0:
-        logger.warning("Detected {} duplicate records in the dataframe of {} records.".format(
-            cnt0-cnt1, cnt0))
+        logger.warning(msg_format.format(dup_cnt=cnt0-cnt1, rec_cnt=cnt0))
