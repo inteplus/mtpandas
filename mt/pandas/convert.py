@@ -111,7 +111,7 @@ def dfunpack(df, spinner=None):
     return df2
 
 
-async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, file_read_delayed: bool = False, max_rows: Optional[int] = None, context_vars: dict = {}, **kwargs):
+async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, file_read_delayed: bool = False, max_rows: Optional[int] = None, context_vars: dict = {}, **kwargs) -> pd.DataFrame:
     '''An asyn function that loads a dataframe file based on the file's extension.
 
     Parameters
@@ -205,7 +205,7 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     raise TypeError("Unknown file type: '{}'".format(df_filepath))
 
 
-def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, **kwargs):
+def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, **kwargs) -> pd.DataFrame:
     '''Loads a dataframe file based on the file's extension.
 
     Parameters
