@@ -49,7 +49,7 @@ def dfpack(df, spinner=None):
         output dataframe
     """
 
-    with warnings.catch_warnings(report=True) as l_msgs:
+    with warnings.catch_warnings(record=True) as l_msgs:
         df2 = df[[]].copy()  # copy the index
         for key in df.columns:
             dftype = get_dftype(df[key])
