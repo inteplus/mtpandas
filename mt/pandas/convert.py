@@ -12,16 +12,26 @@ from .dftype import get_dftype
 from .pdh5 import load_pdh5_asyn, save_pdh5, Pdh5Cell
 
 
-__all__ = ['dfload_asyn', 'dfload', 'dfsave_asyn', 'dfsave', 'dfpack', 'dfunpack', 'Pdh5Cell']
+__all__ = [
+    "dfload_asyn",
+    "dfload",
+    "dfsave_asyn",
+    "dfsave",
+    "dfpack",
+    "dfunpack",
+    "Pdh5Cell",
+]
 
 
 def array2list(x):
-    '''Converts a nested numpy.ndarray object into a nested list object.'''
-    return [array2list(y) for y in x] if isinstance(x, np.ndarray) and x.ndim == 1 else x
+    """Converts a nested numpy.ndarray object into a nested list object."""
+    return (
+        [array2list(y) for y in x] if isinstance(x, np.ndarray) and x.ndim == 1 else x
+    )
 
 
 def dfpack(df, spinner=None):
-    '''Packs a dataframe into a more compact format.
+    """Packs a dataframe into a more compact format.
 
     At the moment, it converts each ndarray column into 3 columns, and each cv.Image column into a json column.
 
@@ -36,23 +46,31 @@ def dfpack(df, spinner=None):
     -------
     pandas.DataFrame
         output dataframe
-    '''
+    """
 
-    df2 = df[[]].copy() # copy the index
+    df2 = df[[]].copy()  # copy the index
     for key in df.columns:
         dftype = get_dftype(df[key])
 
-        if dftype == 'ndarray':
+        if dftype == "ndarray":
             if spinner is not None:
                 spinner.text = "packing ndarray field '{}'".format(key)
-            df2[key+'_df_nd_ravel'] = df[key].apply(lambda x: None if x is None else x.ravel())
-            df2[key+'_df_nd_shape'] = df[key].apply(lambda x: None if x is None else np.array(x.shape))
-            df2[key+'_df_nd_dtype'] = df[key].apply(lambda x: None if x is None else x.dtype.str)
+            df2[key + "_df_nd_ravel"] = df[key].apply(
+                lambda x: None if x is None else x.ravel()
+            )
+            df2[key + "_df_nd_shape"] = df[key].apply(
+                lambda x: None if x is None else np.array(x.shape)
+            )
+            df2[key + "_df_nd_dtype"] = df[key].apply(
+                lambda x: None if x is None else x.dtype.str
+            )
 
-        elif dftype == 'Image':
+        elif dftype == "Image":
             if spinner is not None:
                 spinner.text = "packing Image field '{}'".format(key)
-            df2[key+'_df_imm'] = df[key].apply(lambda x: None if x is None else json.dumps(x.to_json()))
+            df2[key + "_df_imm"] = df[key].apply(
+                lambda x: None if x is None else json.dumps(x.to_json())
+            )
 
         else:
             if spinner is not None:
@@ -63,7 +81,7 @@ def dfpack(df, spinner=None):
 
 
 def dfunpack(df, spinner=None):
-    '''Unpacks a compact dataframe into a more expanded format.
+    """Unpacks a compact dataframe into a more expanded format.
 
     This is the reverse function of :func:`dfpack`.
 
@@ -78,30 +96,34 @@ def dfunpack(df, spinner=None):
     -------
     pandas.DataFrame
         output dataframe
-    '''
+    """
 
-    key2 = '' # just to trick pylint
-    df2 = df[[]].copy() # copy the index
+    key2 = ""  # just to trick pylint
+    df2 = df[[]].copy()  # copy the index
     for key in df.columns:
-        if key.endswith('_df_imm'):
+        if key.endswith("_df_imm"):
             key2 = key[:-7]
             if spinner is not None:
                 spinner.text = "unpacking Image field '{}'".format(key2)
-            df2[key2] = df[key].apply(lambda x: None if x is None else cv.Image.from_json(json.loads(x)))
-        elif key.endswith('_df_nd_ravel'):
+            df2[key2] = df[key].apply(
+                lambda x: None if x is None else cv.Image.from_json(json.loads(x))
+            )
+        elif key.endswith("_df_nd_ravel"):
             key2 = key[:-12]
             if spinner is not None:
                 spinner.text = "unpacking ndarray field '{}'".format(key2)
+
             def unpack_ndarray(row):
-                ravel = row[key2+'_df_nd_ravel']
-                dtype = np.dtype(row[key2+'_df_nd_dtype'])
-                if isinstance(ravel, np.ndarray): # already a 1D array?
+                ravel = row[key2 + "_df_nd_ravel"]
+                dtype = np.dtype(row[key2 + "_df_nd_dtype"])
+                if isinstance(ravel, np.ndarray):  # already a 1D array?
                     ravel = ravel.astype(dtype)
-                else: # list or something else?
+                else:  # list or something else?
                     ravel = np.array(ravel, dtype=dtype)
-                return ravel.reshape(row[key2+'_df_nd_shape'])
+                return ravel.reshape(row[key2 + "_df_nd_shape"])
+
             df2[key2] = df.apply(unpack_ndarray, axis=1)
-        elif '_df_nd_' in key:
+        elif "_df_nd_" in key:
             continue
         else:
             if spinner is not None:
@@ -111,8 +133,18 @@ def dfunpack(df, spinner=None):
     return df2
 
 
-async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, file_read_delayed: bool = False, max_rows: Optional[int] = None, context_vars: dict = {}, **kwargs) -> pd.DataFrame:
-    '''An asyn function that loads a dataframe file based on the file's extension.
+async def dfload_asyn(
+    df_filepath,
+    *args,
+    show_progress=False,
+    unpack=True,
+    parquet_convert_ndarray_to_list=False,
+    file_read_delayed: bool = False,
+    max_rows: Optional[int] = None,
+    context_vars: dict = {},
+    **kwargs
+) -> pd.DataFrame:
+    """An asyn function that loads a dataframe file based on the file's extension.
 
     Parameters
     ----------
@@ -155,16 +187,23 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     ------
     TypeError
         if file type is unknown
-    '''
+    """
 
     filepath = df_filepath.lower()
 
-    if filepath.endswith('.pdh5'):
-        return await load_pdh5_asyn(df_filepath, show_progress=show_progress, file_read_delayed=file_read_delayed, max_rows=max_rows, context_vars=context_vars, **kwargs)
+    if filepath.endswith(".pdh5"):
+        return await load_pdh5_asyn(
+            df_filepath,
+            show_progress=show_progress,
+            file_read_delayed=file_read_delayed,
+            max_rows=max_rows,
+            context_vars=context_vars,
+            **kwargs
+        )
 
-    if filepath.endswith('.parquet'):
+    if filepath.endswith(".parquet"):
         if show_progress:
-            spinner = Halo("dfloading '{}'".format(filepath), spinner='dots')
+            spinner = Halo("dfloading '{}'".format(filepath), spinner="dots")
             scope = spinner
         else:
             spinner = None
@@ -177,9 +216,11 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
                 if parquet_convert_ndarray_to_list:
                     for x in df.columns:
                         if show_progress:
-                            spinner.text = 'converting column: {}'.format(x)
-                        if df.dtypes[x] == np.dtype('O'): # object
-                            df[x] = df[x].apply(array2list) # because Parquet would save lists into nested numpy arrays which is not we expect yet.
+                            spinner.text = "converting column: {}".format(x)
+                        if df.dtypes[x] == np.dtype("O"):  # object
+                            df[x] = df[x].apply(
+                                array2list
+                            )  # because Parquet would save lists into nested numpy arrays which is not we expect yet.
 
                 if unpack:
                     df = dfunpack(df, spinner=spinner)
@@ -193,9 +234,14 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
 
         return df
 
-
-    if filepath.endswith('.csv') or filepath.endswith('.csv.zip'):
-        df = await read_csv_asyn(df_filepath, *args, show_progress=show_progress, context_vars=context_vars, **kwargs)
+    if filepath.endswith(".csv") or filepath.endswith(".csv.zip"):
+        df = await read_csv_asyn(
+            df_filepath,
+            *args,
+            show_progress=show_progress,
+            context_vars=context_vars,
+            **kwargs
+        )
 
         if unpack:
             df = dfunpack(df)
@@ -205,8 +251,15 @@ async def dfload_asyn(df_filepath, *args, show_progress=False, unpack=True, parq
     raise TypeError("Unknown file type: '{}'".format(df_filepath))
 
 
-def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert_ndarray_to_list=False, **kwargs) -> pd.DataFrame:
-    '''Loads a dataframe file based on the file's extension.
+def dfload(
+    df_filepath,
+    *args,
+    show_progress=False,
+    unpack=True,
+    parquet_convert_ndarray_to_list=False,
+    **kwargs
+) -> pd.DataFrame:
+    """Loads a dataframe file based on the file's extension.
 
     Parameters
     ----------
@@ -243,12 +296,29 @@ def dfload(df_filepath, *args, show_progress=False, unpack=True, parquet_convert
     ------
     TypeError
         if file type is unknown
-    '''
-    return aio.srun(dfload_asyn, df_filepath, *args, show_progress=show_progress, unpack=unpack, parquet_convert_ndarray_to_list=parquet_convert_ndarray_to_list, **kwargs)
+    """
+    return aio.srun(
+        dfload_asyn,
+        df_filepath,
+        *args,
+        show_progress=show_progress,
+        unpack=unpack,
+        parquet_convert_ndarray_to_list=parquet_convert_ndarray_to_list,
+        **kwargs
+    )
 
 
-async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, context_vars: dict = {}, file_write_delayed: bool = False, **kwargs):
-    '''An asyn function that saves a dataframe to a file based on the file's extension.
+async def dfsave_asyn(
+    df,
+    df_filepath,
+    file_mode=0o664,
+    show_progress=False,
+    pack=True,
+    context_vars: dict = {},
+    file_write_delayed: bool = False,
+    **kwargs
+):
+    """An asyn function that saves a dataframe to a file based on the file's extension.
 
     Parameters
     ----------
@@ -289,20 +359,22 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
     ------
     TypeError
         if file type is unknown or if the input is not a dataframe
-    '''
+    """
 
     if not isinstance(df, pd.DataFrame):
         raise TypeError("Input must be a pandas.DataFrame. Got '{}'.".format(type(df)))
 
     filepath = df_filepath.lower()
 
-    if filepath.endswith('.pdh5'):
-        save_pdh5(df_filepath, df, file_mode=file_mode, show_progress=show_progress, **kwargs)
+    if filepath.endswith(".pdh5"):
+        save_pdh5(
+            df_filepath, df, file_mode=file_mode, show_progress=show_progress, **kwargs
+        )
         return 1
 
-    if filepath.endswith('.parquet'):
+    if filepath.endswith(".parquet"):
         if show_progress:
-            spinner = Halo(text="dfsaving '{}'".format(filepath), spinner='dots')
+            spinner = Halo(text="dfsaving '{}'".format(filepath), spinner="dots")
             scope = spinner
         else:
             spinner = None
@@ -313,10 +385,18 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
                     df = dfpack(df, spinner=spinner)
 
                 kwargs = kwargs.copy()
-                if not 'use_deprecated_int96_timestamps' in kwargs:
-                    kwargs['use_deprecated_int96_timestamps'] = True # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
+                if not "use_deprecated_int96_timestamps" in kwargs:
+                    kwargs[
+                        "use_deprecated_int96_timestamps"
+                    ] = True  # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
                 data = df.to_parquet(None, **kwargs)
-                res = await aio.write_binary(df_filepath, data, file_mode=file_mode, context_vars=context_vars, file_write_delayed=file_write_delayed)
+                res = await aio.write_binary(
+                    df_filepath,
+                    data,
+                    file_mode=file_mode,
+                    context_vars=context_vars,
+                    file_write_delayed=file_write_delayed,
+                )
 
                 if show_progress:
                     spinner.succeed("dfsaved '{}'".format(filepath))
@@ -326,17 +406,24 @@ async def dfsave_asyn(df, df_filepath, file_mode=0o664, show_progress=False, pac
                 raise
         return res
 
-    if filepath.endswith('.csv') or filepath.endswith('.csv.zip'):
+    if filepath.endswith(".csv") or filepath.endswith(".csv.zip"):
         if pack:
             df = dfpack(df)
-        res = await to_csv_asyn(df, df_filepath, file_mode=file_mode, show_progress=show_progress, context_vars=context_vars, **kwargs)
+        res = await to_csv_asyn(
+            df,
+            df_filepath,
+            file_mode=file_mode,
+            show_progress=show_progress,
+            context_vars=context_vars,
+            **kwargs
+        )
         return res
 
     raise TypeError("Unknown file type: '{}'".format(df_filepath))
 
 
 def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, **kwargs):
-    '''Saves a dataframe to a file based on the file's extension.
+    """Saves a dataframe to a file based on the file's extension.
 
     Parameters
     ----------
@@ -366,5 +453,13 @@ def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, **k
     ------
     TypeError
         if file type is unknown or if the input is not a dataframe
-    '''
-    return aio.srun(dfsave_asyn, df, df_filepath, file_mode=file_mode, show_progress=show_progress, pack=pack, **kwargs)
+    """
+    return aio.srun(
+        dfsave_asyn,
+        df,
+        df_filepath,
+        file_mode=file_mode,
+        show_progress=show_progress,
+        pack=pack,
+        **kwargs
+    )
