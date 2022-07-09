@@ -1,5 +1,6 @@
 from typing import Optional
 
+import warnings
 import io
 import json
 import pandas as pd
@@ -48,34 +49,47 @@ def dfpack(df, spinner=None):
         output dataframe
     """
 
-    df2 = df[[]].copy()  # copy the index
-    for key in df.columns:
-        dftype = get_dftype(df[key])
+    with warnings.catch_warnings(report=True) as l_msgs:
+        df2 = df[[]].copy()  # copy the index
+        for key in df.columns:
+            dftype = get_dftype(df[key])
 
-        if dftype == "ndarray":
-            if spinner is not None:
-                spinner.text = "packing ndarray field '{}'".format(key)
-            df2[key + "_df_nd_ravel"] = df[key].apply(
-                lambda x: None if x is None else x.ravel()
-            )
-            df2[key + "_df_nd_shape"] = df[key].apply(
-                lambda x: None if x is None else np.array(x.shape)
-            )
-            df2[key + "_df_nd_dtype"] = df[key].apply(
-                lambda x: None if x is None else x.dtype.str
-            )
+            if dftype == "ndarray":
+                if spinner is not None:
+                    spinner.text = "packing ndarray field '{}'".format(key)
+                df2[key + "_df_nd_ravel"] = df[key].apply(
+                    lambda x: None if x is None else x.ravel()
+                )
+                df2[key + "_df_nd_shape"] = df[key].apply(
+                    lambda x: None if x is None else np.array(x.shape)
+                )
+                df2[key + "_df_nd_dtype"] = df[key].apply(
+                    lambda x: None if x is None else x.dtype.str
+                )
 
-        elif dftype == "Image":
-            if spinner is not None:
-                spinner.text = "packing Image field '{}'".format(key)
-            df2[key + "_df_imm"] = df[key].apply(
-                lambda x: None if x is None else json.dumps(x.to_json())
-            )
+            elif dftype == "Image":
+                if spinner is not None:
+                    spinner.text = "packing Image field '{}'".format(key)
+                df2[key + "_df_imm"] = df[key].apply(
+                    lambda x: None if x is None else json.dumps(x.to_json())
+                )
 
-        else:
-            if spinner is not None:
-                spinner.text = "passing field '{}'".format(key)
-            df2[key] = df[key]
+            else:
+                if spinner is not None:
+                    spinner.text = "passing field '{}'".format(key)
+                df2[key] = df[key]
+
+    if l_msgs:
+        to_copy = False
+        for msg in l_msgs:
+            if issubclass(msg, pd.errors.PerformanceWarning):
+                to_copy = True
+            else:
+                warnings.warn(msg)
+
+        if to_copy:
+            spinner.text = "defragmenting the dataframe"
+            df2 = df2.copy()
 
     return df2
 

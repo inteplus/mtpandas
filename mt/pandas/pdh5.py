@@ -420,17 +420,17 @@ async def load_pdh5_asyn(
                     file_read_delayed=file_read_delayed,
                     max_rows=max_rows,
                 )
-                if len(l_msgs) > 0:
-                    to_copy = False
-                    for msg in l_msgs:
-                        if issubclass(msg.category, pd.errors.PerformanceWarning):
-                            to_copy = True
-                        else:
-                            print(msg)  # MT-TODO: handle me properly
+            if l_msgs:
+                to_copy = False
+                for msg in l_msgs:
+                    if issubclass(msg.category, pd.errors.PerformanceWarning):
+                        to_copy = True
+                    else:
+                        warnings.warn(msg)
 
-                    if to_copy:
-                        spinner.text = "fragmenting the defragmented dataframe"
-                        df = df.copy()
+                if to_copy:
+                    spinner.text = "defragmenting the dataframe"
+                    df = df.copy()
         if show_progress:
             spinner.succeed("dfloaded '{}'".format(filepath))
         return df
