@@ -88,7 +88,8 @@ def dfpack(df, spinner=None):
                 warnings.warn(msg)
 
         if to_copy:
-            spinner.text = "defragmenting the dataframe"
+            if spinner is not None:
+                spinner.text = "defragmenting the dataframe"
             df2 = df2.copy()
 
     return df2

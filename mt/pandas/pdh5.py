@@ -429,7 +429,8 @@ async def load_pdh5_asyn(
                         warnings.warn(msg)
 
                 if to_copy:
-                    spinner.text = "defragmenting the dataframe"
+                    if show_progress:
+                        spinner.text = "defragmenting the dataframe"
                     df = df.copy()
         if show_progress:
             spinner.succeed("dfloaded '{}'".format(filepath))
