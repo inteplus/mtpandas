@@ -82,7 +82,7 @@ def dfpack(df, spinner=None):
     if l_msgs:
         to_copy = False
         for msg in l_msgs:
-            if issubclass(msg, pd.errors.PerformanceWarning):
+            if issubclass(msg.category, pd.errors.PerformanceWarning):
                 to_copy = True
             else:
                 warnings.warn(msg)
