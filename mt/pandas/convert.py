@@ -232,6 +232,7 @@ async def dfload_asyn(
                     try:
                         from pyarrow.parquet import ParquetFile
                         import pyarrow as pa
+                        pf = ParquetFile(df_filepath)
                         rows = next(pf.iter_batches(batch_size=max_rows))
                         df = pa.Table.from_batches([rows]).to_pandas()
                     except ImportError:
