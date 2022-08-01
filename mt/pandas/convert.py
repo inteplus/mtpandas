@@ -176,7 +176,7 @@ async def dfload_asyn(
         whether or not some columns can be delayed for reading later. Only valid for '.pdh5'
         format.
     max_rows : int, optional
-        limit the maximum number of rows to read. Only valid for '.pdh5' format.
+        limit the maximum number of rows to read. Only valid for '.pdh5' and '.parquet' formats.
     args : list
         list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
         format.
@@ -225,8 +225,20 @@ async def dfload_asyn(
             scope = dummy_scope
         with scope:
             try:
-                data = await aio.read_binary(df_filepath, context_vars=context_vars)
-                df = pd.read_parquet(io.BytesIO(data), *args, **kwargs)
+                if max_rows is None:
+                    data = await aio.read_binary(df_filepath, context_vars=context_vars)
+                    df = pd.read_parquet(io.BytesIO(data), *args, **kwargs)
+                else:
+                    try:
+                        from pyarrow.parquet import ParquetFile
+                        import pyarrow as pa
+                        rows = next(pf.iter_batches(batch_size=max_rows))
+                        df = pa.Table.from_batches([rows]).to_pandas()
+                    except ImportError:
+                        if show_progress:
+                            spinner.text = "PyArrow is not available. Loading the whole file."
+                        data = await aio.read_binary(df_filepath, context_vars=context_vars)
+                        df = pd.read_parquet(io.BytesIO(data), *args, **kwargs)
 
                 if parquet_convert_ndarray_to_list:
                     for x in df.columns:
