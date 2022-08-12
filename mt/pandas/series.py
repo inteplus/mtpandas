@@ -1,12 +1,12 @@
 '''Extra functions to augment pandas.Series.'''
 
 
-import numpy as _np
-import pandas as _pd
+import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 
-__all__ = ['Series4json', 'json4Series', 'to_categorical', 'series_apply']
+__all__ = ['Series4json', 'json4Series', 'to_categorical', 'series_apply', 'stats']
 
 
 def Series4json(obj):
@@ -26,7 +26,7 @@ def Series4json(obj):
     -----
     A json-like object contains 2 array-likes, each has length K. The first array represents the index array. The second array represents the value array.
     '''
-    return _pd.Series(index=obj[0], data=obj[1])
+    return pd.Series(index=obj[0], data=obj[1])
 
 
 def json4Series(obj):
@@ -94,14 +94,14 @@ def to_categorical(series, value_list, missing_values='raise_exception', logger=
     df['cat_id'] = df['cat'].map(value_list.index)
 
     # one hot
-    eye = _np.eye(len(value_list))
+    eye = np.eye(len(value_list))
     eye_list = {i: eye[i] for i in range(len(value_list))}
     df['one_hot'] = df['cat_id'].map(eye_list)
 
     return df.drop('cat', axis=1)
 
 
-def series_apply(s: _pd.Series, func, bar_unit='it') -> _pd.Series:
+def series_apply(s: pd.Series, func, bar_unit='it') -> pd.Series:
     '''Applies a function on every item of a pandas.Series, optionally with a progress bar.
 
     Parameters
@@ -131,3 +131,26 @@ def series_apply(s: _pd.Series, func, bar_unit='it') -> _pd.Series:
 
     with bar:
         return s.apply(func2)
+
+
+def stats(s: pd.Series) -> dict:
+    '''Computes some statistics out of a scalar series.
+
+    Parameters
+    ----------
+    s : pandas.Series
+        a scalar series of non-null numeric values
+
+    Returns
+    -------
+    dict
+        an output dictionary containing keys 'min', 'max', 'mean', 'std'
+    '''
+
+    res = {
+        'min': s.min(),
+        'max': s.max(),
+        'mean': s.mean(),
+        'std': s.std(),
+    }
+    return res
