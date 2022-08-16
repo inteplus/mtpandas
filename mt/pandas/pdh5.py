@@ -110,6 +110,12 @@ def save_pdh5_index(f, df: pd.DataFrame, spinner=None):
             grp.attrs["step"] = index.step
         if index.name is not None:
             grp.attrs["name"] = index.name
+    elif hasattr(pd, "Index") and isinstance(index, pd.Index):
+        grp.attrs["type"] = "Index"
+        grp.attrs["dtype"] = str(index.dtype)
+        if index.name is not None:
+            grp.attrs["name"] = index.name
+        data = grp.create_dataset(name="values", data=index.values, compression="gzip")
     elif isinstance(index, (pd.Int64Index, pd.UInt64Index, pd.Float64Index)):
         grp.attrs["type"] = type(index).__name__
         if index.name is not None:
@@ -270,13 +276,16 @@ def load_pdh5_index(f, spinner=None, max_rows: Optional[int] = None) -> pd.DataF
             stop = start + step * max_rows
         name = grp.attrs.get("name", None)
         index = pd.RangeIndex(start=start, stop=stop, step=step, name=name)
-    elif index_type in ("Int64Index", "UInt64Index", "Float64Index"):
+    elif index_type in ("Int64Index", "UInt64Index", "Float64Index", "Index"):
         name = grp.attrs.get("name", None)
         if max_rows is None:
             values = grp["values"][:]
         else:
             values = grp["values"][:max_rows]
-        index = getattr(pd, index_type)(data=values, name=name)
+        if index_type != "Index":
+            index = getattr(pd, index_type)(data=values, name=name)
+        else:
+            index = pd.Index(data=values, dtype=grp.attrs["dtype"], name=name)
     else:
         raise ValueError("Unsupported index type '{}'.".format(type(index)))
 
