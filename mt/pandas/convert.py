@@ -1,4 +1,4 @@
-from typing import Optional
+import typing as tp
 
 import warnings
 import io
@@ -7,7 +7,8 @@ import pandas as pd
 from halo import Halo
 
 from mt import np, cv
-from mt.base import path, aio, dummy_scope
+from mt.base import aio
+from mt.base.contextlib import nullcontext
 from .csv import read_csv_asyn, to_csv_asyn
 from .dftype import get_dftype
 from .pdh5 import load_pdh5_asyn, save_pdh5, Pdh5Cell
@@ -155,7 +156,7 @@ async def dfload_asyn(
     unpack=True,
     parquet_convert_ndarray_to_list=False,
     file_read_delayed: bool = False,
-    max_rows: Optional[int] = None,
+    max_rows: tp.Optional[int] = None,
     context_vars: dict = {},
     **kwargs
 ) -> pd.DataFrame:
@@ -222,7 +223,7 @@ async def dfload_asyn(
             scope = spinner
         else:
             spinner = None
-            scope = dummy_scope
+            scope = nullcontext()
         with scope:
             try:
                 if max_rows is None:
@@ -232,13 +233,18 @@ async def dfload_asyn(
                     try:
                         from pyarrow.parquet import ParquetFile
                         import pyarrow as pa
+
                         pf = ParquetFile(df_filepath)
                         rows = next(pf.iter_batches(batch_size=max_rows))
                         df = pa.Table.from_batches([rows]).to_pandas()
                     except ImportError:
                         if show_progress:
-                            spinner.text = "PyArrow is not available. Loading the whole file."
-                        data = await aio.read_binary(df_filepath, context_vars=context_vars)
+                            spinner.text = (
+                                "PyArrow is not available. Loading the whole file."
+                            )
+                        data = await aio.read_binary(
+                            df_filepath, context_vars=context_vars
+                        )
                         df = pd.read_parquet(io.BytesIO(data), *args, **kwargs)
 
                 if parquet_convert_ndarray_to_list:
@@ -406,7 +412,7 @@ async def dfsave_asyn(
             scope = spinner
         else:
             spinner = None
-            scope = dummy_scope
+            scope = nullcontext()
         with scope:
             try:
                 if pack:
