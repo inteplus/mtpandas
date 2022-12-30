@@ -6,9 +6,9 @@ import json
 import pandas as pd
 from halo import Halo
 
-from mt import np, cv
+from mt import np, cv, ctx
 from mt.base import aio
-from mt.base.contextlib import nullcontext
+
 from .csv import read_csv_asyn, to_csv_asyn
 from .dftype import get_dftype
 from .pdh5 import load_pdh5_asyn, save_pdh5, Pdh5Cell
@@ -223,7 +223,7 @@ async def dfload_asyn(
             scope = spinner
         else:
             spinner = None
-            scope = nullcontext()
+            scope = ctx.nullcontext()
         with scope:
             try:
                 if max_rows is None:
@@ -412,7 +412,7 @@ async def dfsave_asyn(
             scope = spinner
         else:
             spinner = None
-            scope = nullcontext()
+            scope = ctx.nullcontext()
         with scope:
             try:
                 if pack:

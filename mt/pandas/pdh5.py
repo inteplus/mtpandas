@@ -5,12 +5,11 @@ from typing import Optional
 import warnings
 import os
 import json
-from mt.base.contextlib import nullcontext
 import pandas as pd
 from io import BytesIO
 from halo import Halo
 
-from mt import np, cv
+from mt import np, cv, ctx
 from mt.base import aio, path
 from mt.base.str import text_filename
 from .dftype import isnull, get_dftype
@@ -233,7 +232,7 @@ def save_pdh5(
         scope = spinner
     else:
         spinner = None
-        scope = nullcontext()
+        scope = ctx.nullcontext()
     try:
         import h5py
 
@@ -410,7 +409,7 @@ async def load_pdh5_asyn(
         scope = spinner
     else:
         spinner = None
-        scope = nullcontext()
+        scope = ctx.nullcontext()
     try:
         import h5py
 
