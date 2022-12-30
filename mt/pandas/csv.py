@@ -87,106 +87,94 @@ async def read_csv_asyn(
 
     def process(filepath, data1: io.StringIO, data2, show_progress=False, **kwargs):
 
-        # do read
-        text = "csv-reading '{}'".format(filepath)
+        text = "dfloading '{}'".format(filepath)
         spinner = Halo(text=text, spinner="dots", enabled=show_progress)
         spinner.start()
         ts = pd.Timestamp.now()
         cnt = 0
-        try:
-            dfs = []
-            for df in pd.read_csv(
-                data1, quoting=csv.QUOTE_NONNUMERIC, chunksize=1024, **kwargs
-            ):
-                dfs.append(df)
-                cnt += len(df)
-                td = (pd.Timestamp.now() - ts).total_seconds() + 0.001
-                s = "{} rows ({} rows/sec)".format(cnt, cnt / td)
-                spinner.text = s
-            df = pd.concat(dfs, sort=False)
-            s = "{} rows".format(cnt)
-            spinner.succeed(s)
-        except:
-            s = "{} rows".format(cnt)
-            spinner.fail(s)
-            raise
+        # do read
+        dfs = []
+        for df in pd.read_csv(
+            data1, quoting=csv.QUOTE_NONNUMERIC, chunksize=1024, **kwargs
+        ):
+            dfs.append(df)
+            cnt += len(df)
+            td = (pd.Timestamp.now() - ts).total_seconds() + 0.001
+            s = "{} rows ({} rows/sec)".format(cnt, cnt / td)
+            spinner.text = s
+        df = pd.concat(dfs, sort=False)
 
         # If '.meta' file exists, assume general csv file and use pandas to read.
         if data2 is None:  # no meta
+            text = "dfloaded {} rows from '{}'".format(cnt, filepath)
+            spinner.succeed(text)
             return postprocess(df)
 
-        spinner = (
-            Halo(text="dfloading '{}'".format(filepath), spinner="dots")
-            if show_progress
-            else ctx.nullcontext()
-        )
-        with spinner:
-            try:
-                # extract 'index_col' and 'dtype' from kwargs
-                index_col = kwargs.pop("index_col", None)
-                dtype = kwargs.pop("dtype", None)
+        try:
+            # extract 'index_col' and 'dtype' from kwargs
+            index_col = kwargs.pop("index_col", None)
+            dtype = kwargs.pop("dtype", None)
 
-                # load the metadata
-                if show_progress:
-                    spinner.text = "loading the metadata"
-                meta = None if data2 is None else json.loads(data2)
+            # load the metadata
+            spinner.text = "loading the metadata"
+            meta = None if data2 is None else json.loads(data2)
 
-                if meta is None:
-                    if show_progress:
-                        spinner.succeed(
-                            "dfloaded '{}' with no metadata".format(filepath)
-                        )
-                    return postprocess(df)
+            if meta is None:
+                text = "dfloaded {} rows with no metadata from '{}'".format(
+                    cnt, filepath
+                )
+                spinner.succeed(text)
+                return postprocess(df)
 
-                # From now on, meta takes priority over dtype. We will ignore dtype.
-                kwargs["dtype"] = "object"
+            # From now on, meta takes priority over dtype. We will ignore dtype.
+            kwargs["dtype"] = "object"
 
-                # update index_col if it does not exist and meta has it
-                if index_col is None and len(meta["index_names"]) > 0:
-                    index_col = meta["index_names"]
+            # update index_col if it does not exist and meta has it
+            if index_col is None and len(meta["index_names"]) > 0:
+                index_col = meta["index_names"]
 
-                # adjust the returning dataframe based on the given meta
-                s = meta["columns"]
-                for x in s:
-                    if show_progress:
-                        spinner.text = "checking column '{}'".format(x)
-                    y = s[x]
-                    if y == "datetime64[ns]":
-                        df[x] = pd.to_datetime(df[x])
-                    elif isinstance(y, list) and y[0] == "category":
-                        cat_dtype = pd.api.types.CategoricalDtype(
-                            categories=y[1], ordered=y[2]
-                        )
-                        df[x] = df[x].astype(cat_dtype)
-                    elif y == "int64":
-                        df[x] = df[x].astype(np.int64)
-                    elif y == "uint8":
-                        df[x] = df[x].astype(np.uint8)
-                    elif y == "float64":
-                        df[x] = df[x].astype(np.float64)
-                    elif y == "bool":
-                        # dd is very strict at reading a csv. It may read True as 'True' and False as 'False'.
-                        df[x] = (
-                            df[x]
-                            .replace("True", True)
-                            .replace("False", False)
-                            .astype(np.bool)
-                        )
-                    elif y == "object":
-                        pass
-                    else:
-                        raise OSError("Unknown dtype for conversion {}".format(y))
+            # adjust the returning dataframe based on the given meta
+            s = meta["columns"]
+            for x in s:
+                spinner.text = "checking column '{}'".format(x)
+                y = s[x]
+                if y == "datetime64[ns]":
+                    df[x] = pd.to_datetime(df[x])
+                elif isinstance(y, list) and y[0] == "category":
+                    cat_dtype = pd.api.types.CategoricalDtype(
+                        categories=y[1], ordered=y[2]
+                    )
+                    df[x] = df[x].astype(cat_dtype)
+                elif y == "int64":
+                    df[x] = df[x].astype(np.int64)
+                elif y == "uint8":
+                    df[x] = df[x].astype(np.uint8)
+                elif y == "float64":
+                    df[x] = df[x].astype(np.float64)
+                elif y == "bool":
+                    # dd is very strict at reading a csv. It may read True as 'True' and False as 'False'.
+                    df[x] = (
+                        df[x]
+                        .replace("True", True)
+                        .replace("False", False)
+                        .astype(np.bool)
+                    )
+                elif y == "object":
+                    pass
+                else:
+                    raise OSError("Unknown dtype for conversion {}".format(y))
 
-                # set the index_col if it exists
-                if index_col is not None and len(index_col) > 0:
-                    df = df.set_index(index_col, drop=True)
+            # set the index_col if it exists
+            if index_col is not None and len(index_col) > 0:
+                df = df.set_index(index_col, drop=True)
 
-                if show_progress:
-                    spinner.succeed("dfloaded '{}'".format(filepath))
-            except:
-                if show_progress:
-                    spinner.succeed("failed to dfload '{}'".format(filepath))
-                raise
+            text = "dfloaded {} rows from '{}'".format(cnt, filepath)
+            spinner.succeed(text)
+        except:
+            spinner.fail(
+                "dfloaded {} rows, then failed, from '{}'".format(cnt, filepath)
+            )
+            raise
 
         return postprocess(df)
 
