@@ -2,7 +2,6 @@ import io
 import json
 import pandas as pd
 from zipfile import ZipFile
-from tqdm import tqdm
 from halo import Halo
 import csv
 from mt import np, ctx
@@ -89,18 +88,28 @@ async def read_csv_asyn(
     def process(filepath, data1: io.StringIO, data2, show_progress=False, **kwargs):
 
         # do read
-        if show_progress:
-            bar = tqdm(unit="row")
-        dfs = []
-        for df in pd.read_csv(
-            data1, quoting=csv.QUOTE_NONNUMERIC, chunksize=1024, **kwargs
-        ):
-            dfs.append(df)
-            if show_progress:
-                bar.update(len(df))
-        df = pd.concat(dfs, sort=False)
-        if show_progress:
-            bar.close()
+        text = "csv-reading '{}'".format(filepath)
+        spinner = Halo(text=text, spinner="dots", enabled=show_progress)
+        spinner.start()
+        ts = pd.Timestamp.now()
+        cnt = 0
+        try:
+            dfs = []
+            for df in pd.read_csv(
+                data1, quoting=csv.QUOTE_NONNUMERIC, chunksize=1024, **kwargs
+            ):
+                dfs.append(df)
+                cnt += len(df)
+                td = (pd.Timestamp.now() - ts).total_seconds() + 0.001
+                s = "{} rows ({} rows/sec)".format(cnt, cnt / td)
+                spinner.text = s
+            df = pd.concat(dfs, sort=False)
+            s = "{} rows".format(cnt)
+            spinner.succeed(s)
+        except:
+            s = "{} rows".format(cnt)
+            spinner.fail(s)
+            raise
 
         # If '.meta' file exists, assume general csv file and use pandas to read.
         if data2 is None:  # no meta
