@@ -6,8 +6,7 @@ import json
 import pandas as pd
 from halo import Halo
 
-from mt import np, cv, ctx
-from mt.base import aio
+from mt import np, cv, ctx, aio
 
 from .csv import read_csv_asyn, to_csv_asyn
 from .dftype import get_dftype

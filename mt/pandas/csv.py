@@ -4,8 +4,7 @@ import pandas as pd
 from zipfile import ZipFile
 from halo import Halo
 import csv
-from mt import np, ctx, path
-from mt.base import aio
+from mt import np, ctx, path, aio
 
 
 __all__ = [
