@@ -9,8 +9,8 @@ import pandas as pd
 from io import BytesIO
 from halo import Halo
 
-from mt import np, cv, ctx
-from mt.base import aio, path
+from mt import np, cv, ctx, path
+from mt.base import aio
 from mt.base.str import text_filename
 from .dftype import isnull, get_dftype
 
