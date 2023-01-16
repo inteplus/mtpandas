@@ -12,7 +12,7 @@ You do:
 
    from mt import pd
 
-It will import the pandas package plus the additional stuff implemented here.
+It will import the pandas package plus the additional stuff implemented in :module:`mt.pandas`.
 
 Please see Python package `pandas`_ for more details.
 
