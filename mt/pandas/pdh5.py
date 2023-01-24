@@ -1,7 +1,5 @@
 """Loading and saving to column-based pdh5 format."""
 
-from typing import Optional
-
 import warnings
 import os
 import json
@@ -9,7 +7,7 @@ import pandas as pd
 from io import BytesIO
 from halo import Halo
 
-from mt import np, cv, ctx, path, aio
+from mt import tp, np, cv, ctx, path, aio
 from mt.base.str import text_filename
 from .dftype import isnull, get_dftype
 
@@ -209,7 +207,7 @@ def save_pdh5_columns(f, df: pd.DataFrame, spinner=None):
 def save_pdh5(
     filepath: str,
     df: pd.DataFrame,
-    file_mode: Optional[int] = 0o664,
+    file_mode: tp.Optional[int] = 0o664,
     show_progress: bool = False,
     **kwargs
 ):
@@ -250,7 +248,7 @@ def save_pdh5(
         raise
 
 
-def load_pdh5_index(f, spinner=None, max_rows: Optional[int] = None) -> pd.DataFrame:
+def load_pdh5_index(f, spinner=None, max_rows: tp.Optional[int] = None) -> pd.DataFrame:
     if f.attrs["format"] != "pdh5":
         raise ValueError("Input file does not have 'pdh5' format.")
     size = f.attrs["size"]
@@ -295,7 +293,7 @@ def load_pdh5_columns(
     df: pd.DataFrame,
     spinner=None,
     file_read_delayed: bool = False,
-    max_rows: Optional[int] = None,
+    max_rows: tp.Optional[int] = None,
 ):
     columns = json.loads(f.attrs["columns"])
     size = len(df.index)
@@ -375,7 +373,7 @@ async def load_pdh5_asyn(
     filepath: str,
     show_progress: bool = False,
     file_read_delayed: bool = False,
-    max_rows: Optional[int] = None,
+    max_rows: tp.Optional[int] = None,
     context_vars: dict = {},
     **kwargs
 ) -> pd.DataFrame:
