@@ -1,12 +1,10 @@
-import typing as tp
-
 import warnings
 import io
 import json
 import pandas as pd
 from halo import Halo
 
-from mt import np, cv, ctx, aio
+from mt import tp, np, cv, ctx, aio
 
 from .csv import read_csv_asyn, to_csv_asyn
 from .dftype import get_dftype
