@@ -1,4 +1,4 @@
-'''Extra functions to augment pandas.Series.'''
+"""Extra functions to augment pandas.Series."""
 
 
 import numpy as np
@@ -6,11 +6,11 @@ import pandas as pd
 from tqdm import tqdm
 
 
-__all__ = ['Series4json', 'json4Series', 'to_categorical', 'series_apply', 'stats']
+__all__ = ["Series4json", "json4Series", "to_categorical", "series_apply", "stats"]
 
 
 def Series4json(obj):
-    '''Converts a json-like object in to a pandas.Series.
+    """Converts a json-like object in to a pandas.Series.
 
     Parameters
     ----------
@@ -24,13 +24,13 @@ def Series4json(obj):
 
     Notes
     -----
-    A json-like object contains 2 array-likes, each has length K. The first array represents the index array. The second array represents the value array.
-    '''
+    A json-like object contains 2 array_likes, each has length K. The first array represents the index array. The second array represents the value array.
+    """
     return pd.Series(index=obj[0], data=obj[1])
 
 
 def json4Series(obj):
-    '''Converts a pandas.Series into a json-like object.
+    """Converts a pandas.Series into a json-like object.
 
     Parameters
     ----------
@@ -44,13 +44,13 @@ def json4Series(obj):
 
     Notes
     -----
-    A json-like object contains 2 array-likes, each has length K. The first array represents the index array. The second array represents the value array.
-    '''
+    A json-like object contains 2 array_likes, each has length K. The first array represents the index array. The second array represents the value array.
+    """
     return [obj.index.tolist(), obj.tolist()]
 
 
-def to_categorical(series, value_list, missing_values='raise_exception', logger=None):
-    '''Converts a string series representing a categorical field into a zero-indexed categorical field and a one-hot field in json format.
+def to_categorical(series, value_list, missing_values="raise_exception", logger=None):
+    """Converts a string series representing a categorical field into a zero-indexed categorical field and a one-hot field in json format.
 
     Parameters
     ----------
@@ -72,37 +72,43 @@ def to_categorical(series, value_list, missing_values='raise_exception', logger=
     ------
     ValueError
         if something has gone wrong
-    '''
-    df = series.to_frame('cat') # to dataframe
+    """
+    df = series.to_frame("cat")  # to dataframe
 
     # check for missing values
-    df2 = df[~df['cat'].isin(value_list)]
+    df2 = df[~df["cat"].isin(value_list)]
     if len(df2) > 0:
-        missing_list = df2['cat'].drop_duplicates().tolist()
-        if missing_values == 'raise_exception':
+        missing_list = df2["cat"].drop_duplicates().tolist()
+        if missing_values == "raise_exception":
             raise ValueError("Missing values detected: {}".format(missing_list))
-        elif missing_values =='remove_and_warn':
-            df = df[df['cat'].isin(value_list)]
+        elif missing_values == "remove_and_warn":
+            df = df[df["cat"].isin(value_list)]
             if logger:
-                logger.warn("Missing values detected and removed: {}".format(missing_list))
-        elif missing_values =='remove_in_silence':
-            df = df[df['cat'].isin(value_list)]
+                logger.warn(
+                    "Missing values detected and removed: {}".format(missing_list)
+                )
+        elif missing_values == "remove_in_silence":
+            df = df[df["cat"].isin(value_list)]
         else:
-            raise ValueError("Unknown policy to deal with missing values: {}. Accepted policies are 'raise_exception', 'remove_and_warn' or 'remove_in_silence'.".format(missing_values))
+            raise ValueError(
+                "Unknown policy to deal with missing values: {}. Accepted policies are 'raise_exception', 'remove_and_warn' or 'remove_in_silence'.".format(
+                    missing_values
+                )
+            )
 
     # cat id
-    df['cat_id'] = df['cat'].map(value_list.index)
+    df["cat_id"] = df["cat"].map(value_list.index)
 
     # one hot
     eye = np.eye(len(value_list))
     eye_list = {i: eye[i] for i in range(len(value_list))}
-    df['one_hot'] = df['cat_id'].map(eye_list)
+    df["one_hot"] = df["cat_id"].map(eye_list)
 
-    return df.drop('cat', axis=1)
+    return df.drop("cat", axis=1)
 
 
-def series_apply(s: pd.Series, func, bar_unit='it') -> pd.Series:
-    '''Applies a function on every item of a pandas.Series, optionally with a progress bar.
+def series_apply(s: pd.Series, func, bar_unit="it") -> pd.Series:
+    """Applies a function on every item of a pandas.Series, optionally with a progress bar.
 
     Parameters
     ----------
@@ -117,7 +123,7 @@ def series_apply(s: pd.Series, func, bar_unit='it') -> pd.Series:
     -------
     pandas.Series
         output series by invoking `s.apply`. And a progress bar is shown if asked.
-    '''
+    """
 
     if bar_unit is None:
         return s.apply(func)
@@ -134,7 +140,7 @@ def series_apply(s: pd.Series, func, bar_unit='it') -> pd.Series:
 
 
 def stats(s: pd.Series) -> dict:
-    '''Computes some statistics out of a scalar series.
+    """Computes some statistics out of a scalar series.
 
     Parameters
     ----------
@@ -145,12 +151,12 @@ def stats(s: pd.Series) -> dict:
     -------
     dict
         an output dictionary containing keys 'min', 'max', 'mean', 'std'
-    '''
+    """
 
     res = {
-        'min': s.min(),
-        'max': s.max(),
-        'mean': s.mean(),
-        'std': s.std(),
+        "min": s.min(),
+        "max": s.max(),
+        "mean": s.mean(),
+        "std": s.std(),
     }
     return res
