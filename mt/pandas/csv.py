@@ -6,6 +6,8 @@ from halo import Halo
 import csv
 from mt import np, ctx, path, aio
 
+csv.field_size_limit(262144)
+
 
 __all__ = [
     "metadata",
@@ -85,7 +87,6 @@ async def read_csv_asyn(
         return df
 
     def process(filepath, data1: io.StringIO, data2, show_progress=False, **kwargs):
-
         text = "dfloading '{}'".format(filepath)
         spinner = Halo(text=text, spinner="dots", enabled=show_progress)
         spinner.start()
@@ -236,7 +237,6 @@ async def to_csv_asyn(
     file_write_delayed: bool = False,
     **kwargs
 ):
-
     # special treatment of fields introduced by function dfpack()
     for key in df:
         if key.endswith("_df_nd_ravel"):
