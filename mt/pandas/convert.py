@@ -154,6 +154,7 @@ async def dfload_asyn(
     parquet_convert_ndarray_to_list=False,
     file_read_delayed: bool = False,
     max_rows: tp.Optional[int] = None,
+    nrows: tp.Optional[int] = None,
     context_vars: dict = {},
     **kwargs
 ) -> pd.DataFrame:
@@ -174,15 +175,19 @@ async def dfload_asyn(
         whether or not some columns can be delayed for reading later. Only valid for '.pdh5'
         format.
     max_rows : int, optional
-        limit the maximum number of rows to read. Only valid for '.pdh5' and '.parquet' formats.
-    args : list
-        list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
-        format.
+        limit the maximum number of rows to read. Only valid for '.csv', '.pdh5' and '.parquet'
+        formats. This argument is only for backward compatibility. Please use nrows instead.
+    nrows : int, optional
+        limit the maximum number of rows to read. Only valid for '.csv', '.pdh5' and '.parquet'
+        formats.
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
         Ignored for '.pdh5' format.
-    kwargs : dict
+    *args : tuple
+        list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
+        format.
+    **kwargs : dict
         dictionary of keyword arguments to pass to the corresponding reader. Ignored for '.pdh5'
         format.
 
@@ -202,6 +207,11 @@ async def dfload_asyn(
         if file type is unknown
     """
 
+    if max_rows is not None:
+        msg = "In function dfload_asyn, argument 'max_rows' is deprecated and should be replaced by 'nrows'."
+        warnings.warn(msg)
+        nrows = max_rows
+
     filepath = df_filepath.lower()
 
     if filepath.endswith(".pdh5"):
@@ -209,7 +219,7 @@ async def dfload_asyn(
             df_filepath,
             show_progress=show_progress,
             file_read_delayed=file_read_delayed,
-            max_rows=max_rows,
+            max_rows=nrows,
             context_vars=context_vars,
             **kwargs
         )
@@ -223,7 +233,7 @@ async def dfload_asyn(
             scope = ctx.nullcontext()
         with scope:
             try:
-                if max_rows is None:
+                if nrows is None:
                     data = await aio.read_binary(df_filepath, context_vars=context_vars)
                     df = pd.read_parquet(io.BytesIO(data), *args, **kwargs)
                 else:
@@ -232,7 +242,7 @@ async def dfload_asyn(
                         import pyarrow as pa
 
                         pf = ParquetFile(df_filepath)
-                        rows = next(pf.iter_batches(batch_size=max_rows))
+                        rows = next(pf.iter_batches(batch_size=nrows))
                         df = pa.Table.from_batches([rows]).to_pandas()
                     except ImportError:
                         if show_progress:
@@ -269,6 +279,7 @@ async def dfload_asyn(
         df = await read_csv_asyn(
             df_filepath,
             *args,
+            nrows=nrows,
             show_progress=show_progress,
             context_vars=context_vars,
             **kwargs
@@ -288,6 +299,9 @@ def dfload(
     show_progress=False,
     unpack=True,
     parquet_convert_ndarray_to_list=False,
+    file_read_delayed: bool = False,
+    max_rows: tp.Optional[int] = None,
+    nrows: tp.Optional[int] = None,
     **kwargs
 ) -> pd.DataFrame:
     """Loads a dataframe file based on the file's extension.
@@ -306,10 +320,16 @@ def dfload(
     file_read_delayed : bool
         whether or not some columns can be delayed for reading later. Only valid for '.pdh5'
         format.
-    args : list
+    max_rows : int, optional
+        limit the maximum number of rows to read. Only valid for '.csv', '.pdh5' and '.parquet'
+        formats. This argument is only for backward compatibility. Please use nrows instead.
+    nrows : int, optional
+        limit the maximum number of rows to read. Only valid for '.csv', '.pdh5' and '.parquet'
+        formats.
+    *args : tuple
         list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
         format.
-    kwargs : dict
+    **kwargs : dict
         dictionary of keyword arguments to pass to the corresponding reader. Ignored for '.pdh5'
         format.
 
@@ -335,6 +355,9 @@ def dfload(
         show_progress=show_progress,
         unpack=unpack,
         parquet_convert_ndarray_to_list=parquet_convert_ndarray_to_list,
+        file_read_delayed=file_read_delayed,
+        max_rows=max_rows,
+        nrows=nrows,
         **kwargs
     )
 
@@ -370,7 +393,7 @@ async def dfsave_asyn(
     file_write_delayed : bool
         Only valid in asynchronous mode. If True, wraps the file write task into a future and
         returns the future. In all other cases, proceeds as usual. Ignored for '.pdh5' format.
-    kwargs : dict
+    **kwargs : dict
         dictionary of keyword arguments to pass to the corresponding writer. Ignored for '.pdh5'
         format.
 
@@ -468,7 +491,7 @@ def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, **k
         show a progress spinner in the terminal
     pack : bool
         whether or not to pack the dataframe before saving
-    kwargs : dict
+    **kwargs : dict
         dictionary of keyword arguments to pass to the corresponding writer
 
     Returns
