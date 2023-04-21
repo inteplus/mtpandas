@@ -25,7 +25,7 @@ setup(
         "pandas>=1.3",  # for dataframes, and we need custom dtypes
         #'h5py>=3', # for pdh5 file format. Lazy import because TX2 may not need it.
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
-        "mtbase>=4.3",  # to begin migrating module 'dataframe_processing' to here
+        "mtbase>=4.4",  # to have module 'dataframe_processing' migrated from mtbase to here
         "mtopencv>=1.9",  # Minh-Tri's OpenCV wrapper so we can use cv.Image
         "tqdm",  # for drawing progress bars
         "tabview",  # for viewing spreadsheet-like files
