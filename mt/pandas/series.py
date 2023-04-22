@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from mt import tp, logg
+
 
 __all__ = ["Series4json", "json4Series", "to_categorical", "series_apply", "stats"]
 
@@ -107,7 +109,13 @@ def to_categorical(series, value_list, missing_values="raise_exception", logger=
     return df.drop("cat", axis=1)
 
 
-def series_apply(s: pd.Series, func, bar_unit="it") -> pd.Series:
+def series_apply(
+    s: pd.Series,
+    func,
+    bar_unit="it",
+    logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
+    func_uses_logger: bool = False,
+) -> pd.Series:
     """Applies a function on every item of a pandas.Series, optionally with a progress bar.
 
     Parameters
@@ -118,6 +126,11 @@ def series_apply(s: pd.Series, func, bar_unit="it") -> pd.Series:
         a function to map each item of the series to something
     bar_unit : str, optional
         unit name to be passed to the progress bar. If None is provided, no bar is displayed.
+    logger : mt.logg.IndentedLoggerAdapter, optional
+        logger for debugging purposes. Only used if `bar_unit` is not None.
+    func_uses_logger : bool
+        whether or not the function takes `logger` as an additional keyword argument. Valid only if
+        `logger` is used.
 
     Returns
     -------
@@ -131,7 +144,18 @@ def series_apply(s: pd.Series, func, bar_unit="it") -> pd.Series:
     bar = tqdm(total=len(s), unit=bar_unit)
 
     def func2(x):
-        res = func(x)
+        try:
+            if func_uses_logger:
+                res = func(x, logger=logger)
+            else:
+                res = func(x)
+        except:
+            if logger:
+                logger.error(
+                    "Caught the below exception while series_applying a sequence:"
+                )
+                logger.error(f"  Item: {x}")
+            raise
         bar.update()
         return res
 
