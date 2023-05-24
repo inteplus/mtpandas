@@ -7,8 +7,8 @@ import multiprocessing as mp
 import queue
 
 from mt import tp, np, logg
+from mt.concurrency import beehive
 from mt.base.hashing import hash_int
-from mt.base.concurrency import beehive
 
 
 __api__ = [
