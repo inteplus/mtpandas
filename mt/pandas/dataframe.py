@@ -88,8 +88,7 @@ def parallel_apply(
     df : pandas.DataFrame
         a dataframe
     func : function
-        a function to map each item of the series to something. It must be pickable for parallel
-        processing.
+        a function to map a series to a series. It must be pickable for parallel processing.
     axis : {0,1}
         axis of applying. 1 for rows (default). 0 for columns.
     n_cores : int
