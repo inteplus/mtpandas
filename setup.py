@@ -22,7 +22,8 @@ setup(
     install_requires=dependencies
     + [
         "halo",  # for showing some spinners
-        "pandas>=1.3",  # for dataframes, and we need custom dtypes
+        "pandas>=1.5",  # for dataframes, and we need custom dtypes
+        "pandas_parallel_apply",  # for parallel_apply functions
         #'h5py>=3', # for pdh5 file format. Lazy import because TX2 may not need it.
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
         "mtbase>=4.5",  # to have mt.concurrency

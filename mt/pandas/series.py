@@ -2,13 +2,21 @@
 
 
 import numpy as np
-import pandas as pd
 from tqdm import tqdm
+import pandas as pd
+from pandas_parallel_apply import SeriesParallel
 
-from mt import tp, logg
+from mt import tp, logg, ctx
 
 
-__all__ = ["Series4json", "json4Series", "to_categorical", "series_apply", "stats"]
+__all__ = [
+    "Series4json",
+    "json4Series",
+    "to_categorical",
+    "series_apply",
+    "series_parallel_apply",
+    "stats",
+]
 
 
 def Series4json(obj):
@@ -161,6 +169,61 @@ def series_apply(
 
     with bar:
         return s.apply(func2)
+
+
+def series_parallel_apply(
+    s: pd.Series,
+    func,
+    n_cores: int = -1,
+    parallelism: str = "multiprocess",
+    logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
+    scoped_msg: tp.Optional[str] = None,
+) -> pd.Series:
+    """Parallel-applies a function on every item of a pandas.Series, optionally with a progress bar.
+
+    The method wraps class:`pandas_parallel_apply.SeriesParallel`. The progress bars are shown if
+    and only if a logger is provided.
+
+    Parameters
+    ----------
+    s : pandas.Series
+        a series
+    func : function
+        a function to map each item of the series to something. It must be pickable for parallel
+        processing.
+    n_cores : int
+        number of CPUs to use. Passed as-is to :class:`pandas_parallel_apply.SeriesParallel`.
+    parallelism : {'multithread', 'multiprocess'}
+        multi-threading or multi-processing. Passed as-is to
+        :class:`pandas_parallel_apply.SeriesParallel`.
+    logger : mt.logg.IndentedLoggerAdapter, optional
+        logger for debugging purposes.
+    scoped_msg : str, optional
+        whether or not to scoped_info the progress bars. Only valid if a logger is provided
+
+    Returns
+    -------
+    pandas.Series
+        output series by invoking `s.apply`.
+
+    See Also
+    --------
+    pandas_parallel_apply.SeriesParallel
+        the wrapped class for the parallel_apply purpose
+    """
+
+    if logger:
+        sp = SeriesParallel(s, n_cores=n_cores, parallelism=parallelism, pbar=True)
+        if scoped_msg:
+            context = logger.scoped_info(scoped_msg)
+        else:
+            context = ctx.nullcontext()
+    else:
+        sp = SeriesParallel(s, n_cores=n_cores, parallelism=parallelism, pbar=False)
+        context = ctx.nullcontext()
+
+    with context:
+        return sp.apply(func)
 
 
 def stats(s: pd.Series) -> dict:
