@@ -2,7 +2,7 @@
 
 
 import numpy as np
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import pandas as pd
 from pandas_parallel_apply import SeriesParallel
 

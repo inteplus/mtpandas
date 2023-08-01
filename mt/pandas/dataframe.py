@@ -2,7 +2,7 @@
 
 
 import pandas as pd
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from pandas_parallel_apply import DataFrameParallel
 
 from mt import tp, logg, ctx
