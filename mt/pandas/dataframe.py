@@ -193,7 +193,7 @@ def filter_rows(
         return df2
 
     if msg_format is None:
-        msg = "After filtering, the number of rows has reduced from {n_before} to {n_after}."
+        msg_format = "After filtering, the number of rows has reduced from {n_before} to {n_after}."
     msg = msg_format.format(n_before=n_before, n_after=n_after)
     logg.warn(msg, logger=logger)
 
