@@ -8,7 +8,13 @@ from pandas_parallel_apply import DataFrameParallel
 from mt import tp, logg, ctx
 
 
-__all__ = ["rename_column", "row_apply", "parallel_apply", "warn_duplicate_records"]
+__all__ = [
+    "rename_column",
+    "row_apply",
+    "parallel_apply",
+    "warn_duplicate_records",
+    "filter_rows",
+]
 
 
 def rename_column(df: pd.DataFrame, old_column: str, new_column: str) -> bool:
@@ -130,7 +136,7 @@ def warn_duplicate_records(
     df: pd.DataFrame,
     keys: list,
     msg_format: str = "Detected {dup_cnt}/{rec_cnt} duplicate records.",
-    logger=None,
+    logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
 ):
     """Warns of duplicate records in the dataframe based on a list of keys.
 
@@ -142,8 +148,8 @@ def warn_duplicate_records(
         list of column names
     msg_format : str, optional
         the message to be logged. Two keyword arguments will be provided 'rec_cnt' and 'dup_cnt'.
-    logger : logging.Logger, optional
-        logger to warn if duplicate records are detected
+    logger : mt.logg.IndentedLoggerAdapter, optional
+        logger for debugging purposes.
     """
     if not logger:
         return
@@ -154,3 +160,38 @@ def warn_duplicate_records(
     cnt1 = len(df[keys].drop_duplicates())
     if cnt1 < cnt0:
         logger.warning(msg_format.format(dup_cnt=cnt0 - cnt1, rec_cnt=cnt0))
+
+
+def filter_rows(
+    df: pd.DataFrame,
+    s: pd.Series,
+    msg_format: str = None,
+    logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
+) -> pd.DataFrame:
+    """Returns `df[s]` but warn if the number of rows drops.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        a dataframe
+    s : pandas.Series
+        the boolean series to filter the rows of `df`. Must be of the same size as `df`.
+    msg_format : str, optional
+        the message to be logged. Two keyword arguments will be provided 'n_before' and 'n_after'.
+    logger : mt.logg.IndentedLoggerAdapter, optional
+        logger for debugging purposes.
+    """
+
+    n_before = len(df)
+    if n_before == 0:
+        return df
+
+    df2 = df[s]
+    n_after = len(df2)
+
+    if n_after == n_before:
+        return df2
+
+    msg = msg_format.format(n_before=n_before, n_after=n_after)
+    logg.warn(msg, logger=logger)
+    return df2
