@@ -34,7 +34,7 @@ def rename_column(df: pd.DataFrame, old_column: str, new_column: str) -> bool:
     bool
         whether or not the column has been renamed
     """
-    if not old_column in df.columns:
+    if old_column not in df.columns:
         return False
 
     columns = list(df.columns)
@@ -192,6 +192,9 @@ def filter_rows(
     if n_after == n_before:
         return df2
 
+    if msg_format is None:
+        msg = "After filtering, the number of rows has reduced from {n_before} to {n_after}."
     msg = msg_format.format(n_before=n_before, n_after=n_after)
     logg.warn(msg, logger=logger)
+
     return df2
