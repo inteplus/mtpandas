@@ -270,7 +270,7 @@ async def to_csv_asyn(
                     filepath2 = filepath + ".tmp.zip"
                     dirpath = path.dirname(filepath)
                     if dirpath:
-                        path.make_dirs_asyn(dirpath, context_vars=context_vars)
+                        await path.make_dirs_asyn(dirpath, context_vars=context_vars)
                     if not path.exists(dirpath):
                         await aio.sleep(1, context_vars=context_vars)
 
@@ -306,7 +306,7 @@ async def to_csv_asyn(
                     filepath2 = filepath + ".tmp.csv"
                     dirpath = path.dirname(filepath)
                     if dirpath:
-                        path.make_dirs_asyn(dirpath, context_vars=context_vars)
+                        await path.make_dirs_asyn(dirpath, context_vars=context_vars)
                     if not path.exists(dirpath):
                         await aio.sleep(1, context_vars=context_vars)
                     data = df.to_csv(
