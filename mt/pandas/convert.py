@@ -370,6 +370,7 @@ async def dfsave_asyn(
     pack=True,
     context_vars: dict = {},
     file_write_delayed: bool = False,
+    make_dirs: bool = False,
     **kwargs
 ):
     """An asyn function that saves a dataframe to a file based on the file's extension.
@@ -381,7 +382,8 @@ async def dfsave_asyn(
     df_filepath : str
         local path to an existing dataframe. The file extension is used to determine the file type.
     file_mode : int
-        file mode to be set to using :func:`os.chmod`. If None is given, no setting of file mode will happen.
+        file mode to be set to using :func:`os.chmod`. If None is given, no setting of file mode
+        will happen.
     show_progress : bool
         show a progress spinner in the terminal
     pack : bool
@@ -393,6 +395,8 @@ async def dfsave_asyn(
     file_write_delayed : bool
         Only valid in asynchronous mode. If True, wraps the file write task into a future and
         returns the future. In all other cases, proceeds as usual. Ignored for '.pdh5' format.
+    make_dirs : bool
+        Whether or not to make the folders containing the path before writing to the file.
     **kwargs : dict
         dictionary of keyword arguments to pass to the corresponding writer. Ignored for '.pdh5'
         format.
@@ -450,6 +454,7 @@ async def dfsave_asyn(
                     file_mode=file_mode,
                     context_vars=context_vars,
                     file_write_delayed=file_write_delayed,
+                    make_dirs=make_dirs,
                 )
 
                 if show_progress:
@@ -476,7 +481,15 @@ async def dfsave_asyn(
     raise TypeError("Unknown file type: '{}'".format(df_filepath))
 
 
-def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, **kwargs):
+def dfsave(
+    df,
+    df_filepath,
+    file_mode=0o664,
+    show_progress=False,
+    pack=True,
+    make_dirs: bool = False,
+    **kwargs
+):
     """Saves a dataframe to a file based on the file's extension.
 
     Parameters
@@ -486,11 +499,14 @@ def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, **k
     df_filepath : str
         local path to an existing dataframe. The file extension is used to determine the file type.
     file_mode : int
-        file mode to be set to using :func:`os.chmod`. If None is given, no setting of file mode will happen.
+        file mode to be set to using :func:`os.chmod`. If None is given, no setting of file mode
+        will happen.
     show_progress : bool
         show a progress spinner in the terminal
     pack : bool
         whether or not to pack the dataframe before saving
+    make_dirs : bool
+        Whether or not to make the folders containing the path before writing to the file.
     **kwargs : dict
         dictionary of keyword arguments to pass to the corresponding writer
 
@@ -501,7 +517,8 @@ def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, **k
 
     Notes
     -----
-    For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.to_csv`. For '.parquet' files, we use :func:`pandas.DataFrame.to_parquet`.
+    For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.to_csv`. For '.parquet' files, we
+    use :func:`pandas.DataFrame.to_parquet`.
 
     Raises
     ------
@@ -515,5 +532,6 @@ def dfsave(df, df_filepath, file_mode=0o664, show_progress=False, pack=True, **k
         file_mode=file_mode,
         show_progress=show_progress,
         pack=pack,
+        make_dirs=make_dirs,
         **kwargs
     )
