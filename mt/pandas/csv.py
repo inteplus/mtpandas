@@ -268,11 +268,6 @@ async def to_csv_asyn(
                 if filepath.lower().endswith(".csv.zip"):
                     # write the csv file
                     filepath2 = filepath + ".tmp.zip"
-                    dirpath = path.dirname(filepath)
-                    if dirpath:
-                        await path.make_dirs_asyn(dirpath, context_vars=context_vars)
-                    if not path.exists(dirpath):
-                        await aio.sleep(1, context_vars=context_vars)
 
                     zipdata = io.BytesIO()
                     with ZipFile(zipdata, mode="w") as myzip:
@@ -298,17 +293,13 @@ async def to_csv_asyn(
                         file_mode=file_mode,
                         context_vars=context_vars,
                         file_write_delayed=file_write_delayed,
+                        make_dirs=True,
                     )
                     if show_progress:
                         spinner.text = "saved metadata"
                 else:
                     # write the csv file
                     filepath2 = filepath + ".tmp.csv"
-                    dirpath = path.dirname(filepath)
-                    if dirpath:
-                        await path.make_dirs_asyn(dirpath, context_vars=context_vars)
-                    if not path.exists(dirpath):
-                        await aio.sleep(1, context_vars=context_vars)
                     data = df.to_csv(
                         None, index=index, quoting=csv.QUOTE_NONNUMERIC, **kwargs
                     )
@@ -318,6 +309,7 @@ async def to_csv_asyn(
                         file_mode=file_mode,
                         context_vars=context_vars,
                         file_write_delayed=file_write_delayed,
+                        make_dirs=True,
                     )
                     if show_progress:
                         spinner.text = "saved CSV content"
