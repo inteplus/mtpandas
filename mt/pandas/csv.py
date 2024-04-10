@@ -2,9 +2,9 @@ import io
 import json
 import pandas as pd
 from zipfile import ZipFile
-from halo import Halo
 import csv
 from mt import np, ctx, path, aio
+from mt.halo import Halo
 
 csv.field_size_limit(262144)
 

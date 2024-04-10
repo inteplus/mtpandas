@@ -2,9 +2,9 @@ import warnings
 import io
 import json
 import pandas as pd
-from halo import Halo
 
 from mt import tp, np, cv, ctx, aio
+from mt.halo import Halo
 
 from .csv import read_csv_asyn, to_csv_asyn
 from .dftype import get_dftype

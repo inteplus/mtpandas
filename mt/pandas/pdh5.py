@@ -5,10 +5,10 @@ import os
 import json
 import pandas as pd
 from io import BytesIO
-from halo import Halo
 
 from mt import tp, np, cv, ctx, path, aio
 from mt.base.str import text_filename
+from mt.halo import Halo
 from .dftype import isnull, get_dftype
 
 
