@@ -157,7 +157,7 @@ async def read_csv_asyn(
                         df[x]
                         .replace("True", True)
                         .replace("False", False)
-                        .astype(np.bool)
+                        .astype(np.bool_)
                     )
                 elif y == "object":
                     pass
