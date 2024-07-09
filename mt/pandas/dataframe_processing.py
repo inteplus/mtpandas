@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 import multiprocessing as mp
 import queue
 
-from mt import tp, np, logg
+from mt import tp, np, logg, traceback
 from mt.concurrency import beehive
 from mt.base.hashing import hash_int
 
@@ -356,16 +356,14 @@ class MyQueenBee(beehive.QueenBee):
                         output_tensor_dict = {
                             k: v[i] for k, v in output_batch_tensor_dict.items()
                         }
-                    except (IndexError, AttributeError):
-                        if self.logger:
-                            self.logger.warn_last_exception()
-                            self.logger.debug("Caught the above exception. Details:")
-                            self.logger.debug("  pair_id_list: {}".format(pair_id_list))
-                            self.logger.debug("  output_batch_tensor_dict: \{")
-                            for k, v in output_batch_tensor_dict.items():
-                                self.logger.debug("    {}: {}".format(k, v))
-                            self.logger.debug("  \}")
-                        raise
+                    except (IndexError, AttributeError) as e:
+                        debug = {"pair_id_list": pair_id_list, "i": i}
+                        debug.update(output_batch_tensor_dict)
+                        raise traceback.LogicError(
+                            "Caught an error in delegate_some_postprocessing_tasks().",
+                            debug=debug,
+                            causing_error=e,
+                        )
                     task = asyncio.ensure_future(
                         self.delegate(
                             "postprocess",

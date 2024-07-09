@@ -25,7 +25,7 @@ setup(
         "pandas_parallel_apply",  # for parallel_apply functions
         #'h5py>=3', # for pdh5 file format. Lazy import because TX2 may not need it.
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
-        "mtbase>=4.27.4",  # to have mt.halo
+        "mtbase>=4.30.24",  # to have mt.traceback.LogicError
         "mtopencv>=1.9",  # Minh-Tri's OpenCV wrapper so we can use cv.Image
         "tqdm",  # for drawing progress bars
         "tabview",  # for viewing spreadsheet-like files
