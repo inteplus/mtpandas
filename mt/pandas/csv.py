@@ -151,6 +151,10 @@ async def read_csv_asyn(
                     df[x] = df[x].astype(np.uint8)
                 elif y == "float64":
                     df[x] = df[x].astype(np.float64)
+                elif y == "Int32":
+                    df[x] = df[x].astype(pd.Int32Dtype())
+                elif y == "Int64":
+                    df[x] = df[x].astype(pd.Int64Dtype())
                 elif y == "bool":
                     # dd is very strict at reading a csv. It may read True as 'True' and False as 'False'.
                     df[x] = (
