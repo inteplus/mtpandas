@@ -72,8 +72,8 @@ async def default_batchprocess(
     in case some caching is used, even the result of postprocessing the batch of rows, bypassing
     the batch-processing step.
 
-    The user should override the function to customise the behaviour. The default is to raise
-    a NotImplementedError exception.
+    The user should override the function to customise the behaviour. The default is to bypass
+    whatever input data to output data.
 
     Parameters
     ----------
@@ -104,7 +104,7 @@ async def default_batchprocess(
         :class:`pandas.Series` instances representing the output :class:`pandas.Series` of each
         input item/row, after even the postprocessing step.
     """
-    raise NotImplementedError("This function serves only to show the API.")
+    return batch_tensor_dict
 
 
 async def default_postprocess(
