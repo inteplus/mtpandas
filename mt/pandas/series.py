@@ -1,6 +1,5 @@
 """Extra functions to augment pandas.Series."""
 
-
 import numpy as np
 from tqdm.auto import tqdm
 import pandas as pd
@@ -16,6 +15,7 @@ __all__ = [
     "series_apply",
     "series_parallel_apply",
     "stats",
+    "int_list",
 ]
 
 
@@ -247,3 +247,25 @@ def stats(s: pd.Series) -> dict:
         "std": s.std(),
     }
     return res
+
+
+def int_list(s: pd.Series, dropna: bool = False) -> tp.List[int]:
+    """Extracts unique values from the series, converting them to integers.
+
+    Parameters
+    ----------
+    s : pandas.Series
+        a scalar series
+    dropna : bool
+        whether or not to ignore null values
+
+    Returns
+    -------
+    list
+        list of unique values of the series, converted into integers
+    """
+
+    if dropna:
+        s = s.dropna()
+
+    return s.astype(int).drop_duplicates().tolist()
