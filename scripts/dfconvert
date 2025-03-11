@@ -5,6 +5,7 @@
 
 import argparse
 import asyncio
+from mt import aio
 from mt.pandas.convert import dfload_asyn, dfsave_asyn
 
 
@@ -25,4 +26,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    asyncio.run(main(args))
+    aio.srun(main, args)
