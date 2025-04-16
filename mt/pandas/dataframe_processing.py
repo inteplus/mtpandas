@@ -401,7 +401,7 @@ class MyQueenBee(beehive.QueenBee):
 
             # batch processing
             retval = await self.batchprocess_func(
-                d_batchInputTensors,
+                dl_inputTensors,
                 *self.batchprocess_args,
                 context_vars=context_vars,
                 **self.batchprocess_kwargs
