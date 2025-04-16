@@ -184,10 +184,10 @@ def sample_rows(
     if iter_policy == "sequential":
         index_array = [x % num_rows for x in range(num_iters)]
     elif iter_policy == "resampling":
-        weight_list = np.array(df[resampling_col].tolist())
-        weight_list /= weight_list.sum() + 1e-8  # to make a pmf
+        l_weights = np.array(df[resampling_col].tolist())
+        l_weights /= l_weights.sum() + 1e-8  # to make a pmf
         rng = np.random.RandomState(seed=rng_seed)
-        index_array = rng.choice(num_rows, size=num_iters, p=weight_list)
+        index_array = rng.choice(num_rows, size=num_iters, p=l_weights)
     else:
         raise ValueError("Unknown iteration policy '{}'.".format(iter_policy))
 
@@ -308,8 +308,8 @@ class MyQueenBee(beehive.QueenBee):
             def __init__(self, logger=None):
                 self.offset = 0  # where to get the next pair
                 self.pre_pending_dtask_map = {}  # task -> pair_id
-                self.pre_done_dtask_map = {}  # pair_id -> input_tensor_dict
-                self.batch_done_list = []  # (pair_id_list, output_batch_tensor_dict)
+                self.pre_done_dtask_map = {}  # pair_id -> d_inputTensors
+                self.batch_done_list = []  # (l_pairIds, output_batch_tensor_dict)
                 self.post_pending_dtask_map = {}  # task -> pair_id
                 self.post_done_dtask_map = {}  # pair_id -> pd.Series
                 self.progress_bar = tqdm(total=len(pair_list)) if logger else None
@@ -349,15 +349,15 @@ class MyQueenBee(beehive.QueenBee):
         def delegate_some_postprocessing_tasks():
             if not tvars.batch_done_list:
                 return False
-            for pair_id_list, output_batch_tensor_dict in tvars.batch_done_list:
-                for i, pair_id in enumerate(pair_id_list):  # unstack the batch
+            for l_pairIds, output_batch_tensor_dict in tvars.batch_done_list:
+                for i, pair_id in enumerate(l_pairIds):  # unstack the batch
                     row_id = pair_list[pair_id][0]
                     try:
                         output_tensor_dict = {
                             k: v[i] for k, v in output_batch_tensor_dict.items()
                         }
                     except (IndexError, AttributeError) as e:
-                        debug = {"pair_id_list": pair_id_list, "i": i}
+                        debug = {"l_pairIds": l_pairIds, "i": i}
                         debug.update(output_batch_tensor_dict)
                         raise traceback.LogicError(
                             "Caught an error in delegate_some_postprocessing_tasks().",
@@ -382,19 +382,26 @@ class MyQueenBee(beehive.QueenBee):
                 return False
 
             # stack them up
-            pair_id_list = []
-            input_tensor_dict_list = []
+            l_pairIds = []
+            ld_inputTensors = []
             for i in range(cur_batch_size):
-                pair_id, input_tensor_dict = tvars.pre_done_dtask_map.popitem()
-                pair_id_list.append(pair_id)
-                input_tensor_dict_list.append(input_tensor_dict)
-            batch_input_tensor_dict = {}
-            for k in input_tensor_dict:
-                batch_input_tensor_dict[k] = [x[k] for x in input_tensor_dict_list]
+                pair_id, d_inputTensors = tvars.pre_done_dtask_map.popitem()
+                l_pairIds.append(pair_id)
+                ld_inputTensors.append(d_inputTensors)
+            dl_inputTensors = {}
+            for k in d_inputTensors:
+                try:
+                    batch = [x[k] for x in ld_inputTensors]
+                except KeyError:
+                    raise traceback.LogicError(
+                        "Key does not exist in at least one item of the list of preprocessed results.",
+                        debug={"key": k, "list": ld_inputTensors},
+                    )
+                dl_inputTensors[k] = batch
 
             # batch processing
             retval = await self.batchprocess_func(
-                batch_input_tensor_dict,
+                d_batchInputTensors,
                 *self.batchprocess_args,
                 context_vars=context_vars,
                 **self.batchprocess_kwargs
@@ -404,9 +411,9 @@ class MyQueenBee(beehive.QueenBee):
                     raise NotImplementedError(
                         "Batchprocessing returns a dictionary but there is no postprocessing function to handle it."
                     )
-                tvars.batch_done_list.append((pair_id_list, retval))
+                tvars.batch_done_list.append((l_pairIds, retval))
             elif isinstance(retval, list):
-                for pair_id, out_series in zip(pair_id_list, retval):
+                for pair_id, out_series in zip(l_pairIds, retval):
                     tvars.post_done_dtask_map[pair_id] = out_series
                 tvars.progress_bar.update(cur_batch_size)
             elif (retval is None) and self.skip_null:
