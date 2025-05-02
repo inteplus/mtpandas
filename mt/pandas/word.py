@@ -119,7 +119,7 @@ class WordAccessor:
     def move_vi_tone_to_last(self):
         """Moves the first tone mark to the end of a word."""
         return self._obj.str.replace(
-            "([^`'\?\~\.]*)([`'\?\~\.])(.*)",
+            r"([^`'\?~\.]*)([`'\?~\.])(.*)",
             lambda x: x.group(1) + x.group(3) + x.group(2),
         )
 
@@ -127,7 +127,7 @@ class WordAccessor:
     def truncate_first_vi_mark(self):
         """Truncates each word to the first occurence of a split Vietnamese mark."""
         return self._obj.str.replace(
-            "([^\{\}\-\^\[\]\+`'\?\~\.]*)([\{\}\-\^\[\]\+`'\?\~\.])(.*)",
+            r"([^\{\}-\^\[\]\+`'\?~\.]*)([\{\}-\^\[\]\+`'\?~\.])(.*)",
             lambda x: x.group(1) + x.group(2),
         )
 
