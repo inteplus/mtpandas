@@ -1,6 +1,6 @@
 """Additional utilities dealing with dataframes."""
 
-
+import asyncio
 import pandas as pd
 from tqdm.auto import tqdm
 from pandas_parallel_apply import DataFrameParallel
@@ -11,6 +11,7 @@ from mt import tp, logg, ctx
 __all__ = [
     "rename_column",
     "row_apply",
+    "row_transform_asyn",
     "parallel_apply",
     "warn_duplicate_records",
     "filter_rows",
@@ -73,6 +74,118 @@ def row_apply(df: pd.DataFrame, func, bar_unit="it") -> pd.DataFrame:
 
     with bar:
         return df.apply(func2, axis=1)
+
+
+async def row_transform_asyn(
+    df: pd.DataFrame,
+    func,
+    func_args: tuple = (),
+    func_kwargs: dict = {},
+    max_concurrency: int = 1,
+    bar_unit="it",
+    context_vars: dict = {},
+) -> pd.DataFrame:
+    """Transforms each row of a :class:`pandas.DataFrame` to another row, using an asyn function, and optionally with a progress bar.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        a dataframe
+    func : function
+        an asyn function to map each row of the dataframe to something. Its first positional
+        argument represents the input row. It must return a :class:`pandas.Series` as output.
+    func_args : tuple, optional
+        additional positional arguments to be passed to the function
+    func_kwargs : dict, optional
+        additional keyword arguments to be passed to the function
+    max_concurrency : int
+        maximum number of concurrent rows to process at a time. If a number greater than 1 is
+        provided, the processing of each row is then converted into an asyncio task to be run
+        concurrently.
+    bar_unit : str, optional
+        unit name to be passed to the progress bar. If None is provided, no bar is displayed.
+    context_vars : dict
+        a dictionary of context variables within which the function runs. It must include
+        `context_vars['async']` to tell whether to invoke the function asynchronously or not.
+
+    Returns
+    -------
+    pandas.DataFrame
+        output dataframe
+    """
+
+    if bar_unit is not None:
+        bar = tqdm(total=len(df), unit=bar_unit)
+
+        async def func2(
+            row,
+            *args,
+            context_vars: dict = {},
+            logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
+            **kwargs
+        ):
+            res = await func(row, *args, context_vars=context_vars, **kwargs)
+            bar.update()
+            return res
+
+        with bar:
+            return await row_transform_asyn(
+                df,
+                func2,
+                func_args=func_args,
+                func_kwargs=func_kwargs,
+                max_concurrency=max_concurrency,
+                bar_unit=None,
+                context_vars=context_vars,
+            )
+
+    N = len(df)
+    if N == 0:
+        raise ValueError("Cannot process an empty dataframe.")
+
+    if (N <= max_concurrency) or (max_concurrency == 1):  # too few or sequential
+        l_records = []
+        for idx, row in df.iterrows():
+            out_row = await func(
+                row, *func_args, context_vars=context_vars, **func_kwargs
+            )
+            l_records.append((idx, out_row))
+    else:
+        i = 0
+        l_records = []
+        d_tasks = {}
+
+        while i < N or len(d_tasks) > 0:
+            # push
+            while i < N and len(d_tasks) < max_concurrency:
+                coro = func(
+                    df.iloc[i], *func_args, context_vars=context_vars, **func_kwargs
+                )
+                task = asyncio.create_task(coro)
+                d_tasks[task] = i
+                i += 1
+
+            # pop
+            if len(d_tasks) > 0:
+                # await for maximum 10 minutes for at least 1 task to finish
+                s_done, _ = await asyncio.wait(
+                    d_tasks.keys(),
+                    timeout=600,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+
+                if len(s_done) == 0:
+                    raise TimeoutError("No task has been done for 10 minutes.")
+
+                for task in s_done:
+                    j = d_tasks.pop(task)
+                    rec = (df.index[j], task.result())
+                    l_records.append(rec)
+
+    index, data = zip(*l_records)
+    df2 = pd.DataFrame(index=index, data=data)
+    df2.index.name = df.index.name
+    return df2
 
 
 def parallel_apply(
