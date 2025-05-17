@@ -154,7 +154,7 @@ async def row_transform_asyn(
                 l_records.append((idx, out_row))
             except Exception as e:
                 raise LogicError(
-                    "Row transformation has encounterred an exception.",
+                    "Row transformation has encountered an exception.",
                     debug={"idx": idx, "row": row},
                     causing_error=e,
                 )
@@ -195,7 +195,7 @@ async def row_transform_asyn(
                     error = task.exception()
                     if error is not None:
                         raise LogicError(
-                            "Row transformation has encounterred an exception.",
+                            "Row transformation has encountered an exception.",
                             debug={"row_id": j, "row": df.iloc[j]},
                             causing_error=error,
                         )
