@@ -183,7 +183,14 @@ async def row_transform_asyn(
                 )
 
                 if len(s_done) == 0:
-                    raise TimeoutError("No task has been done for 10 minutes.")
+                    debug = {
+                        "N": N,
+                        "i": i,
+                        "pending_tasks": list(d_tasks.values()),
+                    }
+                    raise LogicError(
+                        "No task has been done for 10 minutes.", debug=debug
+                    )
 
                 for task in s_done:
                     j = d_tasks.pop(task)
