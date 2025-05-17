@@ -161,23 +161,23 @@ async def row_transform_asyn(
     else:
         i = 0
         l_records = []
-        d_tasks = {}
+        l_tasks = {}
 
-        while i < N or len(d_tasks) > 0:
+        while i < N or len(l_tasks) > 0:
             # push
-            while i < N and len(d_tasks) < max_concurrency:
+            while i < N and len(l_tasks) < max_concurrency:
                 coro = func(
                     df.iloc[i], *func_args, context_vars=context_vars, **func_kwargs
                 )
-                task = asyncio.create_task(coro)
-                d_tasks[task] = i
+                task = asyncio.create_task(coro, name=str(i))
+                l_tasks.append(task)
                 i += 1
 
             # pop
-            if len(d_tasks) > 0:
+            if len(l_tasks) > 0:
                 # await for maximum 10 minutes for at least 1 task to finish
-                s_done, _ = await asyncio.wait(
-                    d_tasks.keys(),
+                s_done, s_pending = await asyncio.wait(
+                    l_tasks,
                     timeout=600,
                     return_when=asyncio.FIRST_COMPLETED,
                 )
@@ -186,14 +186,20 @@ async def row_transform_asyn(
                     debug = {
                         "N": N,
                         "i": i,
-                        "pending_tasks": list(d_tasks.values()),
+                        "pending_tasks": [task.name for task in s_pending],
+                        "l_tasks": [task.name for task in l_tasks],
                     }
                     raise LogicError(
                         "No task has been done for 10 minutes.", debug=debug
                     )
 
                 for task in s_done:
-                    j = d_tasks.pop(task)
+                    task_name = task.name
+                    j = int(task_name)
+                    for task2 in l_tasks:
+                        if task2.name == task_name:
+                            l_tasks.remove(task2)
+                            break
                     if task.cancelled():
                         raise LogicError(
                             "Row transformation has been cancelled.",
