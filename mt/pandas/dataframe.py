@@ -161,7 +161,7 @@ async def row_transform_asyn(
     else:
         i = 0
         l_records = []
-        l_tasks = {}
+        l_tasks = []
 
         while i < N or len(l_tasks) > 0:
             # push
