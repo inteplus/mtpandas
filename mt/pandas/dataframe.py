@@ -6,6 +6,7 @@ from tqdm.auto import tqdm
 from pandas_parallel_apply import DataFrameParallel
 
 from mt import tp, logg, ctx
+from mt.base import LogicError
 
 
 __all__ = [
@@ -179,6 +180,18 @@ async def row_transform_asyn(
 
                 for task in s_done:
                     j = d_tasks.pop(task)
+                    if task.cancelled():
+                        raise LogicError(
+                            "Row transformation has been cancelled.",
+                            debug={"row_id": j, "row": df.iloc[j]},
+                        )
+                    error = task.exception()
+                    if error is not None:
+                        raise LogicError(
+                            "Row transformation has encounterred an exception.",
+                            debug={"row_id": j, "row": df.iloc[j]},
+                            causing_error=error,
+                        )
                     rec = (df.index[j], task.result())
                     l_records.append(rec)
 
