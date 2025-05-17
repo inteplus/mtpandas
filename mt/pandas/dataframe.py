@@ -186,18 +186,18 @@ async def row_transform_asyn(
                     debug = {
                         "N": N,
                         "i": i,
-                        "pending_tasks": [task.name for task in s_pending],
-                        "l_tasks": [task.name for task in l_tasks],
+                        "pending_tasks": [task.get_name() for task in s_pending],
+                        "l_tasks": [task.get_name() for task in l_tasks],
                     }
                     raise LogicError(
                         "No task has been done for 10 minutes.", debug=debug
                     )
 
                 for task in s_done:
-                    task_name = task.name
+                    task_name = task.get_name()
                     j = int(task_name)
                     for task2 in l_tasks:
-                        if task2.name == task_name:
+                        if task2.get_name() == task_name:
                             l_tasks.remove(task2)
                             break
                     if task.cancelled():
