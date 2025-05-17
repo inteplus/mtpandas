@@ -147,10 +147,17 @@ async def row_transform_asyn(
     if (N <= max_concurrency) or (max_concurrency == 1):  # too few or sequential
         l_records = []
         for idx, row in df.iterrows():
-            out_row = await func(
-                row, *func_args, context_vars=context_vars, **func_kwargs
-            )
-            l_records.append((idx, out_row))
+            try:
+                out_row = await func(
+                    row, *func_args, context_vars=context_vars, **func_kwargs
+                )
+                l_records.append((idx, out_row))
+            except Exception as e:
+                raise LogicError(
+                    "Row transformation has encounterred an exception.",
+                    debug={"idx": idx, "row": row},
+                    causing_error=e,
+                )
     else:
         i = 0
         l_records = []
