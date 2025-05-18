@@ -118,13 +118,7 @@ async def row_transform_asyn(
     if bar_unit is not None:
         bar = tqdm(total=len(df), unit=bar_unit)
 
-        async def func2(
-            row,
-            *args,
-            context_vars: dict = {},
-            logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
-            **kwargs
-        ):
+        async def func2(row, *args, context_vars: dict = {}, **kwargs):
             res = await func(row, *args, context_vars=context_vars, **kwargs)
             bar.update()
             return res
