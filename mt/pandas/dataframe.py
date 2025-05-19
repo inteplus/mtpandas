@@ -208,6 +208,7 @@ async def row_transform_asyn(
 
             # raise a common LogicError for all tasks that have generated an exception
             if s_error:
+                rows = [int(task.get_name()) for task in s_error]
                 for task in s_error:
                     break
                 raise LogicError(
