@@ -171,7 +171,7 @@ async def row_transform_asyn(
                 # pop
                 if len(s_tasks) > 0:
                     # check for any task that has been cancelled unexpectedly
-                    for task in s_stasks:
+                    for task in s_tasks:
                         if task.cancelled():
                             raise LogicError(
                                 "Row transformation has been unexpectedly cancelled.",
