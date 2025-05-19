@@ -170,6 +170,14 @@ async def row_transform_asyn(
 
                 # pop
                 if len(s_tasks) > 0:
+                    # check for any task that has been cancelled unexpectedly
+                    for task in s_stasks:
+                        if task.cancelled():
+                            raise LogicError(
+                                "Row transformation has been unexpectedly cancelled.",
+                                debug={"row_id": j, "row": df.iloc[j]},
+                            )
+
                     # await for maximum 10 minutes for at least 1 task to finish
                     s_done, s_pending = await asyncio.wait(
                         s_tasks,
