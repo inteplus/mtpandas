@@ -176,6 +176,9 @@ async def row_transform_asyn(
             else:
                 sleep_cnt += 1
             if sleep_cnt >= 1800:
+                import logging
+
+                logging.basicConfig(level=logging.DEBUG)
                 loop = asyncio.get_running_loop()
                 loop.set_debug(True)
             if sleep_cnt >= 3000:
