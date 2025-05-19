@@ -157,73 +157,75 @@ async def row_transform_asyn(
         l_records = []
         s_tasks = set()
 
-        try:
-            while i < N or len(s_tasks) > 0:
-                # push
-                while i < N and len(s_tasks) < max_concurrency:
-                    coro = logg.areturn_exception(func)(
-                        df.iloc[i], *func_args, context_vars=context_vars, **func_kwargs
-                    )
-                    task = asyncio.create_task(coro, name=str(i))
-                    s_tasks.add(task)
-                    i += 1
+        while i < N or len(s_tasks) > 0:
+            # push
+            pushed = False
+            while i < N and len(s_tasks) < max_concurrency:
+                coro = func(
+                    df.iloc[i], *func_args, context_vars=context_vars, **func_kwargs
+                )
+                task = asyncio.create_task(coro, name=str(i))
+                s_tasks.add(task)
+                i += 1
+                pushed = True
 
-                # pop
-                if len(s_tasks) > 0:
-                    # check for any task that has been cancelled unexpectedly
-                    for task in s_tasks:
-                        if task.cancelled():
-                            raise LogicError(
-                                "Row transformation has been unexpectedly cancelled.",
-                                debug={"row_id": j, "row": df.iloc[j]},
-                            )
+            # wait a bit
+            await asyncio.sleep(0.1)
+            if pushed:
+                sleep_cnt = 0
+            else:
+                sleep_cnt += 1
+            if sleep_cnt >= 6000:
+                debug = {
+                    "N": N,
+                    "i": i,
+                    "s_tasks": [task.get_name() for task in s_tasks],
+                }
+                raise LogicError("No task has been done for 10 minutes.", debug=debug)
 
-                    # await for maximum 10 minutes for at least 1 task to finish
-                    s_done, s_pending = await asyncio.wait(
-                        s_tasks,
-                        timeout=600,
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
-
-                    if len(s_done) == 0:
-                        debug = {
-                            "N": N,
-                            "i": i,
-                            "pending_tasks": [task.get_name() for task in s_pending],
-                            "s_tasks": [task.get_name() for task in s_tasks],
-                        }
-                        raise LogicError(
-                            "No task has been done for 10 minutes.", debug=debug
-                        )
-
-                    for task in s_done:
-                        j = int(task.get_name())
-                        if task.cancelled():
-                            raise LogicError(
-                                "Row transformation has been unexpectedly cancelled.",
-                                debug={"row_id": j, "row": df.iloc[j]},
-                            )
-                        error = task.exception()
-                        if error is not None:
-                            raise LogicError(
-                                "Row transformation has encountered an unexpected exception.",
-                                debug={"row_id": j, "row": df.iloc[j]},
-                                causing_error=error,
-                            )
-                        result = task.result()
-                        if isinstance(result, Exception):
-                            raise LogicError(
-                                "Row transformation has encountered an exception.",
-                                debug={"row_id": j, "row": df.iloc[j]},
-                                causing_error=result,
-                            )
-                        rec = (df.index[j], result)
-                        l_records.append(rec)
-
-                    s_tasks = s_pending
-        finally:  # clean up any remaining task
+            # get the status of each event
+            s_pending = set()
+            s_done = set()
+            s_error = set()
+            s_cancelled = set()
             for task in s_tasks:
-                task.cancel()
+                if not task.done():
+                    s_pending.add(task)
+                elif task.cancelled():
+                    s_cancelled.add(task)
+                elif task.exception() is not None:
+                    s_error.add(task)
+                else:
+                    s_done.add(task)
+
+            # raise a common LogicError for all cancelled tasks
+            if s_cancelled:
+                rows = [int(task.get_name()) for task in s_cancelled]
+                raise LogicError(
+                    "Cancelled row transformations detected.",
+                    debug={"rows": df.iloc[rows]},
+                )
+
+            # raise a common LogicError for all tasks that have generated an exception
+            if s_error:
+                for task in s_error:
+                    break
+                raise LogicError(
+                    "Exceptions raised in some row transformations. First exception reported here.",
+                    debug={"rows": df.iloc[rows]},
+                    causing_error=task.exception(),
+                )
+
+            # process done tasks
+            if s_done:
+                sleep_cnt = 0
+                for task in s_done:
+                    j = int(task.get_name())
+                    rec = (df.index[j], result)
+                    l_records.append(rec)
+
+            # update s_tasks
+            s_tasks = s_pending
 
     index, data = zip(*l_records)
     df2 = pd.DataFrame(index=index, data=data)
