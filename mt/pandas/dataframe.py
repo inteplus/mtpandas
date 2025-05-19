@@ -161,6 +161,7 @@ async def row_transform_asyn(
             # push
             pushed = False
             while i < N and len(s_tasks) < max_concurrency:
+                await asyncio.sleep(0.1)  # to avoid racing conditions
                 coro = func(
                     df.iloc[i], *func_args, context_vars=context_vars, **func_kwargs
                 )
