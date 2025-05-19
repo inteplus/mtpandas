@@ -175,13 +175,18 @@ async def row_transform_asyn(
                 sleep_cnt = 0
             else:
                 sleep_cnt += 1
-            if sleep_cnt >= 6000:
+            if sleep_cnt >= 3000:
+                loop = asyncio.get_running_loop()
                 debug = {
                     "N": N,
                     "i": i,
                     "s_tasks": [task.get_name() for task in s_tasks],
+                    "s_tasks_event_loops": [task.get_loop() for task in s_tasks],
+                    "event_loop": loop,
+                    "event_loop_running": loop.is_running(),
+                    "event_loop_closed": loop.is_closed(),
                 }
-                raise LogicError("No task has been done for 10 minutes.", debug=debug)
+                raise LogicError("No task has been done for 5 minutes.", debug=debug)
 
             # get the status of each event
             s_pending = set()
