@@ -221,7 +221,7 @@ async def row_transform_asyn(
                 sleep_cnt = 0
                 for task in s_done:
                     j = int(task.get_name())
-                    rec = (df.index[j], result)
+                    rec = (df.index[j], task.result())
                     l_records.append(rec)
 
             # update s_tasks
