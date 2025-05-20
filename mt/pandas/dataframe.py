@@ -90,6 +90,8 @@ async def row_transform_asyn(
 ) -> pd.DataFrame:
     """Transforms each row of a :class:`pandas.DataFrame` to another row, using an asyn function, and optionally with a progress bar.
 
+    The order of the rows being transformed is not preserved.
+
     Parameters
     ----------
     df : pandas.DataFrame
