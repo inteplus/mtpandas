@@ -195,10 +195,9 @@ async def row_transform_asyn(
                     rows = list(d_tasks.values())
                     logger.warn(f"Timed out transforming rows:\n{df.iloc[rows]}")
 
-                for task in d_tasks:
-                    j = d_tasks[task]
+                for task, j in d_tasks.items():
                     e = TimeoutError("Timeout while concurrently transforming the row.")
-                    l_records.append((j, error_series(e)))
+                    l_records.append((df.index[j], error_series(e)))
                     task.cancel()
 
                 d_tasks = {}
@@ -230,7 +229,7 @@ async def row_transform_asyn(
                     e = asyncio.CancelledError(
                         "Concurrent task cancelled unexpectedly."
                     )
-                    l_records.append((j, error_series(e)))
+                    l_records.append((df.index[j], error_series(e)))
 
             # tasks with raised exceptions
             if d_error:
@@ -241,7 +240,7 @@ async def row_transform_asyn(
                     )
 
                 for task, j in d_error.items():
-                    l_records.append((j, error_series(task.exception())))
+                    l_records.append((df.index[j], error_series(task.exception())))
 
             # done tasks
             if d_done:
