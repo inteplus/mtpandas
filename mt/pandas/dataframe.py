@@ -142,6 +142,7 @@ async def row_transform_asyn(
                 func_kwargs=func_kwargs,
                 max_concurrency=max_concurrency,
                 bar_unit=None,
+                timeout=timeout,
                 context_vars=context_vars,
                 logger=logger,
             )
@@ -189,7 +190,7 @@ async def row_transform_asyn(
                 sleep_cnt = 0
             else:
                 sleep_cnt += 1
-            if sleep_cnt >= timeout * 10:
+            if timeout is not None and sleep_cnt >= timeout * 10:
                 if logger:
                     rows = list(d_tasks.values())
                     logger.warn(f"Timed out transforming rows:\n{df.iloc[rows]}")
