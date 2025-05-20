@@ -84,7 +84,9 @@ async def row_transform_asyn(
     func_kwargs: dict = {},
     max_concurrency: int = 1,
     bar_unit="it",
+    timeout: tp.Optional[float] = None,
     context_vars: dict = {},
+    logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
 ) -> pd.DataFrame:
     """Transforms each row of a :class:`pandas.DataFrame` to another row, using an asyn function, and optionally with a progress bar.
 
@@ -105,14 +107,21 @@ async def row_transform_asyn(
         concurrently.
     bar_unit : str, optional
         unit name to be passed to the progress bar. If None is provided, no bar is displayed.
+    timeout : float, optional
+        maximum number of seconds for each row to be transformed, before a TimeoutError exception
+        is raised. Value 300, representing 5 minutes, is reasonable.
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
+    logger : mt.logg.IndentedLoggerAdapter, optional
+        logger for debugging purposes.
 
     Returns
     -------
     pandas.DataFrame
-        output dataframe
+        output dataframe. Apart from the columns provided by argument `func`, there is a column
+        called 'row_transform_exception' that contains any exception encountered when processing a
+        row.
     """
 
     if bar_unit is not None:
@@ -132,11 +141,15 @@ async def row_transform_asyn(
                 max_concurrency=max_concurrency,
                 bar_unit=None,
                 context_vars=context_vars,
+                logger=logger,
             )
 
     N = len(df)
     if N == 0:
         raise ValueError("Cannot process an empty dataframe.")
+
+    def error_series(e: Exception) -> pd.Series:
+        return pd.Series(data={"row_transform_exception": e})
 
     if (N <= max_concurrency) or (max_concurrency == 1):  # too few or sequential
         l_records = []
@@ -147,26 +160,24 @@ async def row_transform_asyn(
                 )
                 l_records.append((idx, out_row))
             except Exception as e:
-                raise LogicError(
-                    "Row transformation has encountered an exception.",
-                    debug={"idx": idx, "row": row},
-                    causing_error=e,
-                )
+                if logger:
+                    logger.warn_last_exception()
+                l_records.append((idx, error_series(e)))
     else:
         i = 0
         l_records = []
-        s_tasks = set()
+        d_tasks = {}
 
-        while i < N or len(s_tasks) > 0:
+        while i < N or len(d_tasks) > 0:
             # push
             pushed = False
-            while i < N and len(s_tasks) < max_concurrency:
+            while i < N and len(d_tasks) < max_concurrency:
                 await asyncio.sleep(0.1)  # to avoid racing conditions
                 coro = func(
                     df.iloc[i], *func_args, context_vars=context_vars, **func_kwargs
                 )
-                task = asyncio.create_task(coro, name=str(i))
-                s_tasks.add(task)
+                task = asyncio.create_task(coro)
+                d_tasks[task] = i
                 i += 1
                 pushed = True
 
@@ -176,64 +187,67 @@ async def row_transform_asyn(
                 sleep_cnt = 0
             else:
                 sleep_cnt += 1
-            if sleep_cnt >= 1800:
-                import logging
+            if sleep_cnt >= timeout * 10:
+                if logger:
+                    rows = list(d_tasks.values())
+                    logger.warn(f"Timed out transforming rows:\n{df.iloc[rows]}")
 
-                logging.basicConfig(level=logging.DEBUG)
-                loop = asyncio.get_running_loop()
-                loop.set_debug(True)
-            if sleep_cnt >= 3000:
-                debug = {
-                    "N": N,
-                    "i": i,
-                    "s_tasks": [task.get_name() for task in s_tasks],
-                }
-                raise LogicError("No task has been done for 5 minutes.", debug=debug)
+                for task in d_tasks:
+                    j = d_tasks[task]
+                    e = TimeoutError("Timeout while concurrently transforming the row.")
+                    l_records.append((j, error_series(e)))
+                    task.cancel()
+
+                d_tasks = {}
 
             # get the status of each event
-            s_pending = set()
-            s_done = set()
-            s_error = set()
-            s_cancelled = set()
-            for task in s_tasks:
+            d_pending = {}
+            d_done = {}
+            d_error = {}
+            d_cancelled = {}
+            for task, j in d_tasks.items():
                 if not task.done():
-                    s_pending.add(task)
+                    d_pending[task] = j
                 elif task.cancelled():
-                    s_cancelled.add(task)
+                    d_cancelled[task] = j
                 elif task.exception() is not None:
-                    s_error.add(task)
+                    d_error[task] = j
                 else:
-                    s_done.add(task)
+                    d_done[task] = j
 
-            # raise a common LogicError for all cancelled tasks
-            if s_cancelled:
-                rows = [int(task.get_name()) for task in s_cancelled]
-                raise LogicError(
-                    "Cancelled row transformations detected.",
-                    debug={"rows": df.iloc[rows]},
-                )
+            # unexpectedly cancelled tasks
+            if d_cancelled:
+                if logger:
+                    rows = list(d_cancelled.values())
+                    logger.warn(
+                        f"Transformation unexpectedly cancelled for rows:\n{df.iloc[rows]}"
+                    )
 
-            # raise a common LogicError for all tasks that have generated an exception
-            if s_error:
-                rows = [int(task.get_name()) for task in s_error]
-                for task in s_error:
-                    break
-                raise LogicError(
-                    "Exceptions raised in some row transformations. First exception reported here.",
-                    debug={"rows": df.iloc[rows]},
-                    causing_error=task.exception(),
-                )
+                for task, j in d_cancelled.items():
+                    e = asyncio.CancelledError(
+                        "Concurrent task cancelled unexpectedly."
+                    )
+                    l_records.append((j, error_series(e)))
 
-            # process done tasks
-            if s_done:
+            # tasks with raised exceptions
+            if d_error:
+                if logger:
+                    rows = list(d_error.values())
+                    logger.warn(
+                        f"Exceptions raised transforming rows:\n{df.iloc[rows]}"
+                    )
+
+                for task, j in d_error.items():
+                    l_records.append((j, error_series(task.exception())))
+
+            # done tasks
+            if d_done:
                 sleep_cnt = 0
-                for task in s_done:
-                    j = int(task.get_name())
-                    rec = (df.index[j], task.result())
-                    l_records.append(rec)
+                for task, j in d_done.items():
+                    l_records.append((df.index[j], task.result()))
 
-            # update s_tasks
-            s_tasks = s_pending
+            # update d_tasks
+            d_tasks = d_pending
 
     index, data = zip(*l_records)
     df2 = pd.DataFrame(index=index, data=data)
