@@ -252,8 +252,22 @@ async def row_transform_asyn(
             d_tasks = d_pending
 
     index, data = zip(*l_records)
-    df2 = pd.DataFrame(index=index, data=data)
-    df2.index.name = df.index.name
+    try:
+        df2 = pd.DataFrame(index=index, data=data)
+        df2.index.name = df.index.name
+    except Exception as e:
+        debug = {
+            "len": len(index),
+            "index[:10]": index[:10],
+            "data[:10]": data[:10],
+        }
+        raise LogicError(
+            "Error detected while putting together the output dataframe.",
+            debug=debug,
+            causing_error=e,
+        )
+    if "row_transform_exception" not in df2.columns:
+        df2["row_transform_exception"] = None
     return df2
 
 
