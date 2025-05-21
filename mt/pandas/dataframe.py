@@ -246,7 +246,11 @@ async def row_transform_asyn(
             if d_done:
                 sleep_cnt = 0
                 for task, j in d_done.items():
-                    l_records.append((df.index[j], task.result()))
+                    out_row = task.result()
+                    if not isinstance(out_row, pd.Series):
+                        msg = f"Transformed row {j} is not a series: {out_row}."
+                        logg.warn(msg, logger=logger)
+                    l_records.append((df.index[j], out_row))
 
             # update d_tasks
             d_tasks = d_pending
