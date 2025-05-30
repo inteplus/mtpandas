@@ -167,6 +167,13 @@ async def row_transform_asyn(
                     logger.warn_last_exception()
                 l_records.append((idx, error_series(e)))
     else:
+        if timeout is not None:
+            async def func2(row, *args, context_vars: dict = {}, **kwargs):
+                async with asyncio.timeout(timeout):
+                    return await func(row, *args, context_vars=context_vars, **kwargs)
+        else:
+            func2 = func
+
         i = 0
         l_records = []
         d_tasks = {}
@@ -175,8 +182,7 @@ async def row_transform_asyn(
             # push
             pushed = False
             while i < N and len(d_tasks) < max_concurrency:
-                # await asyncio.sleep(0.01)  # to avoid racing conditions
-                coro = func(
+                coro = func2(
                     df.iloc[i], *func_args, context_vars=context_vars, **func_kwargs
                 )
                 task = asyncio.create_task(coro)
