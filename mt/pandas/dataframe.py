@@ -168,9 +168,11 @@ async def row_transform_asyn(
                 l_records.append((idx, error_series(e)))
     else:
         if timeout is not None:
+
             async def func2(row, *args, context_vars: dict = {}, **kwargs):
                 async with asyncio.timeout(timeout):
                     return await func(row, *args, context_vars=context_vars, **kwargs)
+
         else:
             func2 = func
 
@@ -245,8 +247,15 @@ async def row_transform_asyn(
                         f"Exceptions raised transforming rows:\n{df.iloc[rows]}"
                     )
 
+                e = None
                 for task, j in d_error.items():
-                    l_records.append((df.index[j], error_series(task.exception())))
+                    if logger and (e is None):
+                        e = task.exception()
+                        with logger.scoped_warn("First exception"):
+                            logger.warn_exception(e, row=df.iloc[j])
+                    else:
+                        e = task.exception()
+                    l_records.append((df.index[j], error_series(e)))
 
             # done tasks
             if d_done:
