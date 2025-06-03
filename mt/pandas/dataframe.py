@@ -81,7 +81,7 @@ async def row_transform_asyn(
     df: pd.DataFrame,
     func,
     func_args: tuple = (),
-    func_kwargs: dict = {},
+    func_kwds: dict = {},
     max_concurrency: int = 1,
     bar_unit="it",
     timeout: tp.Optional[float] = None,
@@ -101,7 +101,7 @@ async def row_transform_asyn(
         argument represents the input row. It must return a :class:`pandas.Series` as output.
     func_args : tuple, optional
         additional positional arguments to be passed to the function
-    func_kwargs : dict, optional
+    func_kwds : dict, optional
         additional keyword arguments to be passed to the function
     max_concurrency : int
         maximum number of concurrent rows to process at a time. If a number greater than 1 is
@@ -129,8 +129,8 @@ async def row_transform_asyn(
     if bar_unit is not None:
         bar = tqdm(total=len(df), unit=bar_unit)
 
-        async def func2(row, *args, context_vars: dict = {}, **kwargs):
-            res = await func(row, *args, context_vars=context_vars, **kwargs)
+        async def func2(row, *args, context_vars: dict = {}, **kwds):
+            res = await func(row, *args, context_vars=context_vars, **kwds)
             bar.update()
             return res
 
@@ -139,7 +139,7 @@ async def row_transform_asyn(
                 df,
                 func2,
                 func_args=func_args,
-                func_kwargs=func_kwargs,
+                func_kwds=func_kwds,
                 max_concurrency=max_concurrency,
                 bar_unit=None,
                 timeout=timeout,
@@ -159,7 +159,7 @@ async def row_transform_asyn(
         for idx, row in df.iterrows():
             try:
                 out_row = await func(
-                    row, *func_args, context_vars=context_vars, **func_kwargs
+                    row, *func_args, context_vars=context_vars, **func_kwds
                 )
                 l_records.append((idx, out_row))
             except Exception as e:
@@ -169,9 +169,9 @@ async def row_transform_asyn(
     else:
         if timeout is not None:
 
-            async def func2(row, *args, context_vars: dict = {}, **kwargs):
+            async def func2(row, *args, context_vars: dict = {}, **kwds):
                 async with asyncio.timeout(timeout):
-                    return await func(row, *args, context_vars=context_vars, **kwargs)
+                    return await func(row, *args, context_vars=context_vars, **kwds)
 
         else:
             func2 = func
@@ -185,7 +185,7 @@ async def row_transform_asyn(
             pushed = False
             while i < N and len(d_tasks) < max_concurrency:
                 coro = func2(
-                    df.iloc[i], *func_args, context_vars=context_vars, **func_kwargs
+                    df.iloc[i], *func_args, context_vars=context_vars, **func_kwds
                 )
                 task = asyncio.create_task(coro)
                 d_tasks[task] = i
