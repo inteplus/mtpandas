@@ -8,7 +8,7 @@ from io import BytesIO
 
 from mt import tp, np, cv, ctx, path, aio
 from mt.base.str import text_filename
-from mt.halo import Halo
+from mt.halo import HaloAuto
 from .dftype import isnull, get_dftype
 
 
@@ -225,7 +225,7 @@ def save_pdh5(
         show a progress spinner in the terminal
     """
     if show_progress:
-        spinner = Halo("dfsaving '{}'".format(filepath), spinner="dots")
+        spinner = HaloAuto("dfsaving '{}'".format(filepath), spinner="dots")
         scope = spinner
     else:
         spinner = None
@@ -310,11 +310,11 @@ def load_pdh5_columns(
         elif dftype == "str":
             df[column] = f[key][:size]
             df[column] = df[column].apply(
-                lambda x: None
-                if x in (b"", b"None_NaT_NaN")
-                else x.decode()
-                if isinstance(x, bytes)
-                else x
+                lambda x: (
+                    None
+                    if x in (b"", b"None_NaT_NaN")
+                    else x.decode() if isinstance(x, bytes) else x
+                )
             )
         elif dftype in (
             "bool",
@@ -402,7 +402,7 @@ async def load_pdh5_asyn(
         the loaded dataframe
     """
     if show_progress:
-        spinner = Halo("dfloading '{}'".format(filepath), spinner="dots")
+        spinner = HaloAuto("dfloading '{}'".format(filepath), spinner="dots")
         scope = spinner
     else:
         spinner = None

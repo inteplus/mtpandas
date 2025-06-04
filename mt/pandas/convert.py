@@ -4,7 +4,7 @@ import json
 import pandas as pd
 
 from mt import tp, np, cv, ctx, aio
-from mt.halo import Halo
+from mt.halo import HaloAuto
 
 from .csv import read_csv_asyn, to_csv_asyn
 from .dftype import get_dftype
@@ -226,7 +226,7 @@ async def dfload_asyn(
 
     if filepath.endswith(".parquet"):
         if show_progress:
-            spinner = Halo("dfloading '{}'".format(filepath), spinner="dots")
+            spinner = HaloAuto("dfloading '{}'".format(filepath), spinner="dots")
             scope = spinner
         else:
             spinner = None
@@ -432,7 +432,7 @@ async def dfsave_asyn(
 
     if filepath.endswith(".parquet"):
         if show_progress:
-            spinner = Halo(text="dfsaving '{}'".format(filepath), spinner="dots")
+            spinner = HaloAuto(text="dfsaving '{}'".format(filepath), spinner="dots")
             scope = spinner
         else:
             spinner = None
@@ -444,9 +444,9 @@ async def dfsave_asyn(
 
                 kwargs = kwargs.copy()
                 if not "use_deprecated_int96_timestamps" in kwargs:
-                    kwargs[
-                        "use_deprecated_int96_timestamps"
-                    ] = True  # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
+                    kwargs["use_deprecated_int96_timestamps"] = (
+                        True  # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
+                    )
                 data = df.to_parquet(None, **kwargs)
                 res = await aio.write_binary(
                     df_filepath,

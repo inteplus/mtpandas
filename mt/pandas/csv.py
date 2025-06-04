@@ -4,7 +4,7 @@ import pandas as pd
 from zipfile import ZipFile
 import csv
 from mt import np, ctx, path, aio
-from mt.halo import Halo
+from mt.halo import Halo, HaloAuto
 
 csv.field_size_limit(262144)
 
@@ -88,7 +88,7 @@ async def read_csv_asyn(
 
     def process(filepath, data1: io.StringIO, data2, show_progress=False, **kwargs):
         text = "dfloading '{}'".format(filepath)
-        spinner = Halo(text=text, spinner="dots", enabled=show_progress)
+        spinner = HaloAuto(text=text, spinner="dots", enabled=show_progress)
         spinner.start()
         ts = pd.Timestamp.now()
         cnt = 0
@@ -258,7 +258,7 @@ async def to_csv_asyn(
                 df[key] = df[key].apply(tolist)
 
     spinner = (
-        Halo(text="dfsaving '{}'".format(filepath), spinner="dots")
+        HaloAuto(text="dfsaving '{}'".format(filepath), spinner="dots")
         if show_progress
         else ctx.nullcontext()
     )
