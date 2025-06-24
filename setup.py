@@ -26,7 +26,7 @@ setup(
         "pathos",  # pandas_parallel_apply needs it
         #'h5py>=3', # for pdh5 file format. Lazy import because TX2 may not need it.
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
-        "mtbase>=4.32.25",  # to have mt.halo.HaloAuto
+        "mtbase>=4.32.32",  # to have mt.asyncio
         "mtopencv>=1.11.2",  # just updating
         "tqdm",  # for drawing progress bars
         "tabview",  # for viewing spreadsheet-like files

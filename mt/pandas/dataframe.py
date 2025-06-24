@@ -1,11 +1,10 @@
 """Additional utilities dealing with dataframes."""
 
-import asyncio
 import pandas as pd
 from tqdm.auto import tqdm
 from pandas_parallel_apply import DataFrameParallel
 
-from mt import tp, logg, ctx
+from mt import tp, logg, ctx, asyncio
 from mt.base import LogicError
 
 
@@ -170,7 +169,7 @@ async def row_transform_asyn(
         if timeout is not None:
 
             async def func2(row, *args, context_vars: dict = {}, **kwds):
-                async with asyncio.timeout(timeout):  # only available since python 3.12
+                async with asyncio.timeout(timeout):
                     return await func(row, *args, context_vars=context_vars, **kwds)
 
         else:
