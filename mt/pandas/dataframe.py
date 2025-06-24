@@ -170,7 +170,7 @@ async def row_transform_asyn(
         if timeout is not None:
 
             async def func2(row, *args, context_vars: dict = {}, **kwds):
-                async with asyncio.timeout(timeout):
+                async with asyncio.sleep(timeout):
                     return await func(row, *args, context_vars=context_vars, **kwds)
 
         else:
