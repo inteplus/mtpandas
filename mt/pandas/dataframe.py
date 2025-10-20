@@ -13,6 +13,7 @@ __all__ = [
     "row_apply",
     "row_transform_asyn",
     "parallel_apply",
+    "parallel_groupby_apply",
     "warn_duplicate_records",
     "filter_rows",
 ]
@@ -344,6 +345,71 @@ def parallel_apply(
 
     with context:
         return dp.apply(func, axis)
+
+
+def parallel_groupby_apply(
+    df: pd.DataFrame,
+    groupby_cols: list,
+    func: callable,
+    func_args: tuple = (),
+    func_kwds: dict = {},
+    n_cores: int = -1,
+    parallelism: str = "multiprocess",
+    logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
+    scoped_msg: tp.Optional[str] = None,
+) -> tp.Union[pd.DataFrame, pd.Series, tp.Any]:
+    """Parallel-applies a function on every group of a pandas.DataFrame, optionally with a progress bar.
+
+    The method wraps class:`pandas_parallel_apply.DataFrameParallel`. The `groupby_cols` list is
+    passed as-is to the underlying :func:`DataFrameParallel.groupby` function. The progress bars
+    are shown if and only if a logger is provided.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        a dataframe
+    groupby_cols : list
+        list of column names to group by
+    func : function
+        A callable that takes a dataframe as its first argument, and returns a dataframe, a series
+        or a scalar. In addition the callable may take positional and keyword arguments.
+    func_args : tuple, optional
+        additional positional arguments to be passed to the function
+    func_kwds : dict, optional
+        additional keyword arguments to be passed to the function
+    n_cores : int
+        number of CPUs to use. Passed as-is to :class:`pandas_parallel_apply.DataFrameParallel`.
+    parallelism : {'multithread', 'multiprocess'}
+        multi-threading or multi-processing. Passed as-is to
+        :class:`pandas_parallel_apply.DataFrameParallel`.
+    logger : mt.logg.IndentedLoggerAdapter, optional
+        logger for debugging purposes.
+    scoped_msg : str, optional
+        whether or not to scoped_info the progress bars. Only valid if a logger is provided
+
+    Returns
+    -------
+    pandas.DataFrame
+        output dataframe by invoking `df.groupby(groupby_cols).apply`.
+
+    See Also
+    --------
+    pandas_parallel_apply.DataFrameParallel
+        the wrapped class for the parallel_apply purpose
+    """
+
+    if logger:
+        dp = DataFrameParallel(df, n_cores=n_cores, parallelism=parallelism, pbar=True)
+        if scoped_msg:
+            context = logger.scoped_info(scoped_msg)
+        else:
+            context = ctx.nullcontext()
+    else:
+        dp = DataFrameParallel(df, n_cores=n_cores, parallelism=parallelism, pbar=False)
+        context = ctx.nullcontext()
+
+    with context:
+        return dp.groupby(groupby_cols).apply(func, *func_args, **func_kwds)
 
 
 def warn_duplicate_records(
