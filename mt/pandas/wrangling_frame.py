@@ -1,7 +1,6 @@
 # pylint: disable=import-outside-toplevel, line-too-long
 
-"""Definition and implementation of a wrangling frame.
-"""
+"""Definition and implementation of a wrangling frame."""
 
 from mt import tp, pd
 from mt.base import LogicError
@@ -25,6 +24,11 @@ class WranglingFrame(object):
         self.df = df.copy()
         if "unwrangled_reason" not in self.df.columns:
             self.df["unwrangled_reason"] = None
+
+    def n_rows_to_wrangle(self) -> int:
+        """Returns the number of rows left to wrangle."""
+        s = self.df["unwrangled_reason"].isnull()
+        return s.sum()
 
     def empty_column(self, col: str) -> bool:
         """Checks if a column is empty or not.
