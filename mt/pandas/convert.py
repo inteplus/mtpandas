@@ -413,6 +413,12 @@ async def dfsave_asyn(
     use :func:`pandas.DataFrame.to_parquet`. For '.pdh5' files, we use
     :func:`mt.pandas.pdh5.save_pdh5`.
 
+    When you want to save a large parquet file, you may want to pass `row_group_size` as a keyword
+    argument for pyarrow or `row_group_offsets` as a keyword argument for fastparquet. This would
+    allow the file to be read in smaller chunks later on, which can save memory and speed up the
+    reading process. The optimal value for `row_group_size` or `row_group_offsets` depends on your
+    specific use case and system configuration, but a common choice is around 10000 to 50000.
+
     Raises
     ------
     TypeError
@@ -519,6 +525,12 @@ def dfsave(
     -----
     For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.to_csv`. For '.parquet' files, we
     use :func:`pandas.DataFrame.to_parquet`.
+
+    When you want to save a large parquet file, you may want to pass `row_group_size` as a keyword
+    argument for pyarrow or `row_group_offsets` as a keyword argument for fastparquet. This would
+    allow the file to be read in smaller chunks later on, which can save memory and speed up the
+    reading process. The optimal value for `row_group_size` or `row_group_offsets` depends on your
+    specific use case and system configuration, but a common choice is around 10000 to 50000.
 
     Raises
     ------
