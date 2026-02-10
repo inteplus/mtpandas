@@ -81,9 +81,15 @@ class WranglingFrame(object):
                 debug={"df": self.df},
             )
         if df is not None:
+            for x in df.columns:
+                if x not in self.df.columns:
+                    self.df[x] = None
             n_before = len(self.df)
             df2 = self.df[~self.s]
-            self.df = pd.concat([df2, df])
+            if len(df2) == 0:
+                self.df = df.copy()
+            else:
+                self.df = pd.concat([df2, df])
             n_after = len(self.df)
             if n_before != n_after:
                 raise LogicError(
