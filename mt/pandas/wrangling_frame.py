@@ -86,7 +86,7 @@ class WranglingFrame(object):
             if len(df2) == 0:
                 # If all rows are checked out, we can just replace the dataframe.
                 self.df = df.copy()
-            else:
+            elif len(df) > 0:
                 self.df = pd.concat([df2, df])
             n_after = len(self.df)
             if n_before != n_after:
