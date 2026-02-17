@@ -109,6 +109,6 @@ class WranglingFrame(object):
             return
         with logger.scoped_info(f"Wrangling frame of {len(self.df)} records"):
             logger.info(f"Columns: {self.df.columns}")
-            logger.info(
-                f"Reasons: {self.df.groupby("unwrangled_reason", dropna=False).size()}"
-            )
+            if "uwrangled_reason" in self.df.columns:
+                df = self.df.groupby("unwrangled_reason", dropna=False).size()
+                logger.info(f"Reasons: {df}")
