@@ -2,7 +2,7 @@
 
 """Definition and implementation of a wrangling frame."""
 
-from mt import tp, pd
+from mt import tp, pd, logg
 from mt.base import LogicError
 
 
@@ -102,3 +102,13 @@ class WranglingFrame(object):
                 )
         del self.s
         self.wrangling = False
+
+    def summarise(self, logger: tp.Optional[logg.IndentedLoggerAdapter] = None):
+        """Summarises the wrangling frame."""
+        if not logger:
+            return
+        with logger.scoped_info(f"Wrangling frame of {len(self.df)} records"):
+            logger.info(f"Columns: {self.df.columns}")
+            logger.info(
+                f"Reasons: {self.df.groupby("unwrangled_reason", dropna=False).size()}"
+            )
