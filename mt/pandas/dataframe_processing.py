@@ -1,5 +1,6 @@
 """Batch processing a dataframe."""
 
+import asyncio
 import pandas as pd
 
 from tqdm.auto import tqdm
@@ -9,7 +10,7 @@ import queue
 from mt import tp, np, logg, traceback
 from mt.concurrency import beehive
 from mt.base.hashing import hash_int
-
+from mt.base import LogicError
 
 __api__ = [
     "default_preprocess",
@@ -17,6 +18,7 @@ __api__ = [
     "default_postprocess",
     "sample_rows",
     "process_dataframe",
+    "process_dataframe_in_batches",
 ]
 
 
@@ -229,7 +231,7 @@ class MyWorkerBee(beehive.WorkerBee):
         rng_seed: int,
         *args,
         context_vars: dict = {},
-        **kwargs
+        **kwargs,
     ):
         return await self.preprocess_func(
             s, iter_id, rng_seed, *args, context_vars=context_vars, **kwargs
@@ -339,7 +341,7 @@ class MyQueenBee(beehive.QueenBee):
                         pair_id,
                         rng_seed,
                         *self.preprocess_args,
-                        **self.preprocess_kwargs
+                        **self.preprocess_kwargs,
                     )
                 )
                 tvars.pre_pending_dtask_map[task] = pair_id
@@ -369,7 +371,7 @@ class MyQueenBee(beehive.QueenBee):
                             "postprocess",
                             output_tensor_dict,
                             *self.postprocess_args,
-                            **self.postprocess_kwargs
+                            **self.postprocess_kwargs,
                         )
                     )
                     tvars.post_pending_dtask_map[task] = pair_id
@@ -404,7 +406,7 @@ class MyQueenBee(beehive.QueenBee):
                 dl_inputTensors,
                 *self.batchprocess_args,
                 context_vars=context_vars,
-                **self.batchprocess_kwargs
+                **self.batchprocess_kwargs,
             )
             if isinstance(retval, dict):
                 if self.postprocess_func is None:
@@ -719,3 +721,276 @@ async def process_dataframe(
         max_concurrency=max_concurrency,
         logger=logger,
     )
+
+
+async def process_dataframe_in_batches(
+    df: pd.DataFrame,
+    preprocess_func,
+    batchprocess_func=None,
+    postprocess_func=None,
+    rng_seed: int = 0,
+    preprocess_args: tuple = (),
+    preprocess_kwargs: dict = {},
+    batchprocess_args: tuple = (),
+    batchprocess_kwargs: dict = {},
+    postprocess_args: tuple = (),
+    postprocess_kwargs: dict = {},
+    skip_null: bool = False,
+    batch_size: int = 32,
+    max_concurrent_preprocessing_items: int = 32 * 16,
+    context_vars: dict = {},
+    logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
+):
+    """An asyn function that does batch processing a dataframe.
+
+    The functionality provided here addresses the following situation. The user has a dataframe in
+    which each row represents an event or an image. There is a need to take some fields of each row
+    and to convert them into tensors to feed one or more models for training, prediction, validation
+    or evaluation purposes. Upon applying the tensors to a model and getting some results, there is
+    a need to transform output tensors back to some fields. In addition, the model(s) can only
+    operate in batches, rather than on individual items.
+
+    To address this situation, the user needs to provide 3 asyn functions: `preprocess`,
+    `batchprocess` and `postprocess`. `preprocess` applies to each row for converting some fields of
+    the row into a dictionary of tensors. Tensors of the same name are stacked up to form a
+    dictionary of batch tensors, and then are fed to `batchprocess` for batch processing using the
+    model(s). The output batch tensors are unstacked into individual tensors and then fed to
+    `postprocess` to convert them back into pandas.Series representing fields for each row. Finally,
+    these new fields are concatenated to form an output dataframe.
+
+    The three above functions have a default implementation, namely :func:`default_preprocess`,
+    :func:`default_batchprocess` and :func:`default_postprocess`, respectively. The user must make
+    sure the APIs of their functions match with those of the default ones. Note that it is possible
+    that during preprocessing or batchprocessing a row the function can skip batch-processing and
+    postprocessing altogether and returns an output series corresponding to each input row.
+
+    Internally, we use asyncio and no multiprocessing to address the problem. We maintain 3 queues:
+    Q1 represents the items to be preprocessed, Q2 represents the items to be batchprocessed, and
+    Q3 represents the items to be postprocessed. The order of priority is Q3 > Q2 > Q1. We maintain a queue Q1
+    of pre-processed items. Whenever the queue has enough items for a batch, we do batch processing
+    on them. We maintain another, higher-priority queue Q2 of items for post-processing. Whenever
+    there are items in this queue, we do post-processing on them before doing any batch processing.
+    The two queues are filled by the same set of worker tasks that do preprocessing and postprocessing
+    works of each row.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        an input unindexed dataframe
+    preprocess_func : function
+        the preprocessing function
+    batchprocess_func : function, optional
+        the function for batch-processing. If not provided, the preprocess function must returned
+        postprocessed pandas.Series instances.
+    postprocess_func : function, optional
+        the postrocessing function. If not provided, the preprocess and batchprocess functions
+        must make sure that every row is processed and a pandas.Series is returned.
+    rng_seed : int, optional
+        seed for making RNGs
+    preprocess_args : tuple, optional
+        positional arguments to be passed as-is to :func:`preprocess`
+    preprocess_kwargs : dict, optional
+        keyword arguments to be passed as-is to :func:`preprocess`
+    batchprocess_args : tuple, optional
+        positional arguments to be passed as-is to :func:`batchprocess`
+    batchprocess_kwargs : dict, optional
+        keyword arguments to be passed as-is to :func:`batchprocess`
+    postprocess_args : tuple, optional
+        positional arguments to be passed as-is to :func:`postprocess`
+    postprocess_kwargs : dict, optional
+        keyword arguments to be passed as-is to :func:`postprocess`
+    skip_null : bool
+        If True, any None returned value from the provided functions will be considered as a
+        trigger to skip the row. Otherwise, an exception is raised as usual.
+    batch_size : int
+        maximum batch size for each batch that is formed internally
+    max_concurrent_preprocessing_items : int
+        the maximum number items in the Q2 queue for batchproccessing. This is to avoid too many
+        items waiting for batchprocessing and thus overloading the system.
+    context_vars : dict
+        a dictionary of context variables within which the function runs. It must include
+        `context_vars['async']` to tell whether to invoke the function asynchronously or not.
+        Variable 's3_client' must exist and hold an enter-result of an async with statement
+        invoking :func:`mt.base.s3.create_s3_client`. In asynchronous mode, variable
+        'http_session' must exist and hold an enter-result of an async with statement invoking
+        :func:`mt.base.http.create_http_session`.
+    logger : mt.logg.IndentedLoggerAdapter, optional
+        logger for debugging purposes
+
+    Returns
+    -------
+    df : pandas.DataFrame
+        an output unindexed dataframe
+
+    Notes
+    -----
+    The function only works in asynchronous mode. That means `context_vars['async'] is True` is
+    required.
+    """
+
+    if len(df) == 0:
+        return pd.DataFrame(data=[])
+
+    if not context_vars["async"]:
+        raise ValueError("Only asynchronous mode is supported.")
+
+    df = df.reset_index(
+        drop=True
+    )  # to make sure we have a standard unindexed dataframe. resampling can spoil the indices
+
+    Q1 = queue.Queue()  # list of items pending to be preprocessed
+    P1 = []  # list of (item, task) pairs being preprocessed
+    Q2 = queue.Queue()  # list of items pending to be batchprocessed
+    P2 = []  # list of (items, task) pairs being batchprocessed
+    Q3 = queue.Queue()  # list of items pending to be postprocessed.
+    P3 = []  # list of (item, task) pairs being postprocessed
+    P4 = []  # list of items that have gone through the pipeline
+    N = len(df)
+
+    for i in range(N):
+        Q1.put_nowait(i)
+
+    while True:
+        await asyncio.sleep(0)
+
+        # P3: check for (item, task) pairs that have been postprocessed
+        for item, task in P3:
+            if task.done():
+                P3.remove((item, task))
+                if task.cancelled():
+                    raise LogicError(
+                        f"The task postprocessing row {item} has been cancelled.",
+                        debug={"item": item, "row": df.iloc[item]},
+                    )
+                elif task.exception() is not None:
+                    raise LogicError(
+                        f"Exception raised during postprocessing row {item}.",
+                        debug={"item": item, "row": df.iloc[item]},
+                        causing_error=task.exception(),
+                    )
+                else:
+                    retval = task.result()
+                    if isinstance(retval, pd.Series):
+                        P4.append((item, retval))
+                    elif (retval is None) and skip_null:
+                        pass
+                    else:
+                        raise RuntimeError(
+                            f"The postprocessing function returns an unexpected type: {type(retval)}."
+                        )
+
+        # Q3: check for items pending to be postprocessed and delegate postprocessing tasks for them
+        while not Q3.empty():
+            item, tensor_dict = Q3.get_nowait()
+            task = asyncio.ensure_future(
+                postprocess_func(
+                    tensor_dict,
+                    *postprocess_args,
+                    context_vars=context_vars,
+                    **postprocess_kwargs,
+                )
+            )
+            P3.append((item, task))
+
+        # P2: check for (items, task) pairs that have been batchprocessed
+        for items, task in P2:
+            if task.done():
+                P2.remove((items, task))
+                if task.cancelled():
+                    raise LogicError(
+                        f"The task batchprocessing items {items} has been cancelled.",
+                        debug={"items": items, "rows": df.iloc[items]},
+                    )
+                elif task.exception() is not None:
+                    raise LogicError(
+                        f"Exception raised during batchprocessing items {items}.",
+                        debug={"items": items, "rows": df.iloc[items]},
+                        causing_error=task.exception(),
+                    )
+                else:
+                    retval = task.result()
+                    if isinstance(retval, dict):
+                        for item in items:
+                            Q3.put_nowait((item, {k: v[i] for k, v in retval.items()}))
+                    elif isinstance(retval, list):
+                        for item, out_series in zip(items, retval):
+                            P4.append((item, out_series))
+                    elif (retval is None) and skip_null:
+                        pass
+                    else:
+                        raise RuntimeError(
+                            f"The batchprocessing function returns an unexpected type: {type(retval)}."
+                        )
+
+        # Q2: check for items pending to be batchprocessed and delegate batchprocessing tasks for them
+        while Q2.qsize() >= batch_size or (len(P1) == 0 and Q1.empty()):
+            items = []
+            batch_tensor_dict = {}
+            for i in range(batch_size):
+                item, tensor_dict = Q2.get_nowait()
+                items.append(item)
+                for k, v in tensor_dict.items():
+                    if k not in batch_tensor_dict:
+                        batch_tensor_dict[k] = []
+                    batch_tensor_dict[k].append(v)
+            task = asyncio.ensure_future(
+                batchprocess_func(
+                    batch_tensor_dict,
+                    *batchprocess_args,
+                    context_vars=context_vars,
+                    **batchprocess_kwargs,
+                )
+            )
+            P2.append((items, task))
+
+        # P1: check for (item, task) pairs that have been preprocessed
+        for item, task in P1:
+            if task.done():
+                P1.remove((item, task))
+                if task.cancelled():
+                    raise LogicError(
+                        f"The task preprocessing row {item} has been cancelled.",
+                        debug={"item": item, "row": df.iloc[item]},
+                    )
+                elif task.exception() is not None:
+                    raise LogicError(
+                        f"Exception raised during preprocessing row {item}.",
+                        debug={"item": item, "row": df.iloc[item]},
+                        causing_error=task.exception(),
+                    )
+                else:
+                    retval = task.result()
+                    if isinstance(retval, dict):
+                        Q2.put_nowait((item, retval))
+                    elif isinstance(retval, pd.Series):
+                        P4.append((item, retval))
+                    elif (retval is None) and skip_null:
+                        pass
+                    else:
+                        raise RuntimeError(
+                            f"The preprocessing function returns an unexpected type: {type(retval)}."
+                        )
+
+        # Q1: check for items pending to be preprocessed and delegate preprocessing tasks for them
+        while len(P1) < max_concurrent_preprocessing_items and not Q1.empty():
+            item = Q1.get_nowait()
+            row = df.iloc[item]
+            task = asyncio.ensure_future(
+                preprocess_func(
+                    row,
+                    item,
+                    rng_seed + item,
+                    *preprocess_args,
+                    context_vars=context_vars,
+                    **preprocess_kwargs,
+                )
+            )
+            P1.append((item, task))
+
+        if Q1.empty() and not P1 and Q2.empty() and not P2 and Q3.empty() and not P3:
+            break
+
+    P4 = sorted(P4, key=lambda x: x[0])  # sort in ascending item id
+    out_rows = [x[1] for x in P4]
+    out_df = pd.DataFrame(data=out_rows)
+    return out_df
