@@ -861,6 +861,10 @@ async def process_dataframe_in_batches(
     while True:
         await asyncio.sleep(0)
 
+        if logger:
+            msg = f"Current status: Q1={len(Q1)} P1={len(P1)} Q2={len(Q2)} P2={len(P2)} Q3={len(Q3)} P3={len(P3)} P4={len(P4)}."
+            logger.debug(msg)
+
         # P3: check for (item, task) pairs that have been postprocessed
         new_P3 = []
         for item, task in P3:
