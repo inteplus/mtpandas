@@ -848,7 +848,7 @@ async def process_dataframe_in_batches(
     N = len(df)
 
     for i in range(N):
-        Q1.put_nowait(i)
+        Q1.put(i)
 
     while True:
         await asyncio.sleep(0)
@@ -881,7 +881,7 @@ async def process_dataframe_in_batches(
 
         # Q3: check for items pending to be postprocessed and delegate postprocessing tasks for them
         while not Q3.empty():
-            item, tensor_dict = Q3.get_nowait()
+            item, tensor_dict = Q3.get()
             task = asyncio.ensure_future(
                 postprocess_func(
                     tensor_dict,
@@ -911,7 +911,7 @@ async def process_dataframe_in_batches(
                     retval = task.result()
                     if isinstance(retval, dict):
                         for item in items:
-                            Q3.put_nowait((item, {k: v[i] for k, v in retval.items()}))
+                            Q3.put((item, {k: v[i] for k, v in retval.items()}))
                     elif isinstance(retval, list):
                         for item, out_series in zip(items, retval):
                             P4.append((item, out_series))
@@ -927,7 +927,7 @@ async def process_dataframe_in_batches(
             items = []
             batch_tensor_dict = {}
             for i in range(batch_size):
-                item, tensor_dict = Q2.get_nowait()
+                item, tensor_dict = Q2.get()
                 items.append(item)
                 for k, v in tensor_dict.items():
                     if k not in batch_tensor_dict:
@@ -961,7 +961,7 @@ async def process_dataframe_in_batches(
                 else:
                     retval = task.result()
                     if isinstance(retval, dict):
-                        Q2.put_nowait((item, retval))
+                        Q2.put((item, retval))
                     elif isinstance(retval, pd.Series):
                         P4.append((item, retval))
                     elif (retval is None) and skip_null:
@@ -973,7 +973,7 @@ async def process_dataframe_in_batches(
 
         # Q1: check for items pending to be preprocessed and delegate preprocessing tasks for them
         while len(P1) < max_concurrent_preprocessing_items and not Q1.empty():
-            item = Q1.get_nowait()
+            item = Q1.get()
             row = df.iloc[item]
             task = asyncio.ensure_future(
                 preprocess_func(
