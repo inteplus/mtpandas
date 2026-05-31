@@ -902,6 +902,10 @@ async def process_dataframe_in_batches(
                     )
         P3 = new_P3
 
+        if logger:
+            msg = f"  P3={len(P3)}"
+            logger.debug(msg)
+
         # Q3: check for items pending to be postprocessed and delegate postprocessing tasks for them
         while Q3:
             item, tensor_dict = Q3.pop(0)
@@ -914,6 +918,10 @@ async def process_dataframe_in_batches(
                 )
             )
             P3.append((item, task))
+
+        if logger:
+            msg = f"  Q3={len(Q3)}"
+            logger.debug(msg)
 
         # P2: check for (items, task) pairs that have been batchprocessed
         new_P2 = []
@@ -951,6 +959,10 @@ async def process_dataframe_in_batches(
                     )
         P2 = new_P2
 
+        if logger:
+            msg = f"  P2={len(P2)}"
+            logger.debug(msg)
+
         # Q2: check for items pending to be batchprocessed and delegate batchprocessing tasks for them
         while len(Q2) >= batch_size or (len(P1) == 0 and len(Q1) == 0):
             items = []
@@ -972,6 +984,10 @@ async def process_dataframe_in_batches(
                 )
             )
             P2.append((items, task))
+
+        if logger:
+            msg = f"  Q2={len(Q2)}"
+            logger.debug(msg)
 
         # P1: check for (item, task) pairs that have been preprocessed
         new_P1 = []
@@ -1007,6 +1023,10 @@ async def process_dataframe_in_batches(
                     )
         P1 = new_P1
 
+        if logger:
+            msg = f"  P1={len(P1)}"
+            logger.debug(msg)
+
         # Q1: check for items pending to be preprocessed and delegate preprocessing tasks for them
         while len(P1) < max_concurrent_preprocessing_items and Q1:
             item = Q1.pop(0)
@@ -1022,6 +1042,10 @@ async def process_dataframe_in_batches(
                 )
             )
             P1.append((item, task))
+
+        if logger:
+            msg = f"  Q1={len(Q1)}"
+            logger.debug(msg)
 
         if not (Q1 or P1 or Q2 or P2 or Q3 or P3):
             break
