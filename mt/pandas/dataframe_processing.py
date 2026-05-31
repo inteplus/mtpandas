@@ -964,7 +964,7 @@ async def process_dataframe_in_batches(
             logger.debug(msg)
 
         # Q2: check for items pending to be batchprocessed and delegate batchprocessing tasks for them
-        while len(Q2) >= batch_size or (len(P1) == 0 and len(Q1) == 0):
+        while len(Q2) >= batch_size or (len(P1) == 0 and len(Q1) == 0 and len(Q2) > 0):
             items = []
             batch_tensor_dict = {}
             for i in range(min(len(Q2), batch_size)):
