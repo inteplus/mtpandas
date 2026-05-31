@@ -764,14 +764,14 @@ async def process_dataframe_in_batches(
     that during preprocessing or batchprocessing a row the function can skip batch-processing and
     postprocessing altogether and returns an output series corresponding to each input row.
 
-    Internally, we use asyncio and no multiprocessing to address the problem. We maintain 3 queues:
-    Q1 represents the items to be preprocessed, Q2 represents the items to be batchprocessed, and
-    Q3 represents the items to be postprocessed. The order of priority is Q3 > Q2 > Q1. We maintain a queue Q1
-    of pre-processed items. Whenever the queue has enough items for a batch, we do batch processing
-    on them. We maintain another, higher-priority queue Q2 of items for post-processing. Whenever
-    there are items in this queue, we do post-processing on them before doing any batch processing.
-    The two queues are filled by the same set of worker tasks that do preprocessing and postprocessing
-    works of each row.
+    Internally, we use asyncio but no multiprocessing to address the problem. We maintain: 3 queues
+    Q1, Q2 and Q3; and 4 lists P1, P2, P3 and P4. Q1 represents the items pending to be
+    preprocessed, P1 represents the items being preprocessed, Q2 represents the items to be
+    batchprocessed, P2 represents the items being batchprocessed, Q3 represents the items to be
+    postprocessed, P3 represents the items being postprocessed, and P4 represents the items that
+    have been fully processed. The order of priority is P3 > Q3 > P2 > Q2 > P1 > Q1. We keep
+    checking these queues and lists in the above order and delegate tasks for the items in them
+    when possible.
 
     Parameters
     ----------
@@ -838,50 +838,51 @@ async def process_dataframe_in_batches(
         drop=True
     )  # to make sure we have a standard unindexed dataframe. resampling can spoil the indices
 
-    Q1 = queue.Queue()  # list of items pending to be preprocessed
+    N = len(df)
+    Q1 = list(range(N))  # list of items pending to be preprocessed
     P1 = []  # list of (item, task) pairs being preprocessed
-    Q2 = queue.Queue()  # list of items pending to be batchprocessed
+    Q2 = []  # list of items pending to be batchprocessed
     P2 = []  # list of (items, task) pairs being batchprocessed
-    Q3 = queue.Queue()  # list of items pending to be postprocessed.
+    Q3 = []  # list of items pending to be postprocessed.
     P3 = []  # list of (item, task) pairs being postprocessed
     P4 = []  # list of items that have gone through the pipeline
-    N = len(df)
-
-    for i in range(N):
-        Q1.put(i)
 
     while True:
         await asyncio.sleep(0)
 
         # P3: check for (item, task) pairs that have been postprocessed
+        new_P3 = []
         for item, task in P3:
-            if task.done():
-                P3.remove((item, task))
-                if task.cancelled():
-                    raise LogicError(
-                        f"The task postprocessing row {item} has been cancelled.",
-                        debug={"item": item, "row": df.iloc[item]},
-                    )
-                elif task.exception() is not None:
-                    raise LogicError(
-                        f"Exception raised during postprocessing row {item}.",
-                        debug={"item": item, "row": df.iloc[item]},
-                        causing_error=task.exception(),
-                    )
+            if not task.done():
+                new_P3.append((item, task))
+                continue
+
+            if task.cancelled():
+                raise LogicError(
+                    f"The task postprocessing row {item} has been cancelled.",
+                    debug={"item": item, "row": df.iloc[item]},
+                )
+            elif task.exception() is not None:
+                raise LogicError(
+                    f"Exception raised during postprocessing row {item}.",
+                    debug={"item": item, "row": df.iloc[item]},
+                    causing_error=task.exception(),
+                )
+            else:
+                retval = task.result()
+                if isinstance(retval, pd.Series):
+                    P4.append((item, retval))
+                elif (retval is None) and skip_null:
+                    pass
                 else:
-                    retval = task.result()
-                    if isinstance(retval, pd.Series):
-                        P4.append((item, retval))
-                    elif (retval is None) and skip_null:
-                        pass
-                    else:
-                        raise RuntimeError(
-                            f"The postprocessing function returns an unexpected type: {type(retval)}."
-                        )
+                    raise RuntimeError(
+                        f"The postprocessing function returns an unexpected type: {type(retval)}."
+                    )
+        P3 = new_P3
 
         # Q3: check for items pending to be postprocessed and delegate postprocessing tasks for them
-        while not Q3.empty():
-            item, tensor_dict = Q3.get()
+        while Q3:
+            item, tensor_dict = Q3.pop(0)
             task = asyncio.ensure_future(
                 postprocess_func(
                     tensor_dict,
@@ -893,46 +894,51 @@ async def process_dataframe_in_batches(
             P3.append((item, task))
 
         # P2: check for (items, task) pairs that have been batchprocessed
+        new_P2 = []
         for items, task in P2:
-            if task.done():
-                P2.remove((items, task))
-                if task.cancelled():
-                    raise LogicError(
-                        f"The task batchprocessing items {items} has been cancelled.",
-                        debug={"items": items, "rows": df.iloc[items]},
-                    )
-                elif task.exception() is not None:
-                    raise LogicError(
-                        f"Exception raised during batchprocessing items {items}.",
-                        debug={"items": items, "rows": df.iloc[items]},
-                        causing_error=task.exception(),
-                    )
+            if not task.done():
+                new_P2.append((items, task))
+                continue
+
+            if task.cancelled():
+                raise LogicError(
+                    f"The task batchprocessing items {items} has been cancelled.",
+                    debug={"items": items, "rows": df.iloc[items]},
+                )
+            elif task.exception() is not None:
+                raise LogicError(
+                    f"Exception raised during batchprocessing items {items}.",
+                    debug={"items": items, "rows": df.iloc[items]},
+                    causing_error=task.exception(),
+                )
+            else:
+                retval = task.result()
+                if isinstance(retval, dict):
+                    for item in items:
+                        Q3.append((item, {k: v[i] for k, v in retval.items()}))
+                elif isinstance(retval, list):
+                    for item, out_series in zip(items, retval):
+                        P4.append((item, out_series))
+                elif (retval is None) and skip_null:
+                    pass
                 else:
-                    retval = task.result()
-                    if isinstance(retval, dict):
-                        for item in items:
-                            Q3.put((item, {k: v[i] for k, v in retval.items()}))
-                    elif isinstance(retval, list):
-                        for item, out_series in zip(items, retval):
-                            P4.append((item, out_series))
-                    elif (retval is None) and skip_null:
-                        pass
-                    else:
-                        raise RuntimeError(
-                            f"The batchprocessing function returns an unexpected type: {type(retval)}."
-                        )
+                    raise RuntimeError(
+                        f"The batchprocessing function returns an unexpected type: {type(retval)}."
+                    )
+        P2 = new_P2
 
         # Q2: check for items pending to be batchprocessed and delegate batchprocessing tasks for them
-        while Q2.qsize() >= batch_size or (len(P1) == 0 and Q1.empty()):
+        while len(Q2) >= batch_size or not (P1 or Q1):
             items = []
             batch_tensor_dict = {}
-            for i in range(batch_size):
-                item, tensor_dict = Q2.get()
+            for i in range(min(len(Q2), batch_size)):
+                item, tensor_dict = Q2.pop(0)
                 items.append(item)
                 for k, v in tensor_dict.items():
                     if k not in batch_tensor_dict:
-                        batch_tensor_dict[k] = []
-                    batch_tensor_dict[k].append(v)
+                        batch_tensor_dict[k] = [v]
+                    else:
+                        batch_tensor_dict[k].append(v)
             task = asyncio.ensure_future(
                 batchprocess_func(
                     batch_tensor_dict,
@@ -944,36 +950,40 @@ async def process_dataframe_in_batches(
             P2.append((items, task))
 
         # P1: check for (item, task) pairs that have been preprocessed
+        new_P1 = []
         for item, task in P1:
-            if task.done():
-                P1.remove((item, task))
-                if task.cancelled():
-                    raise LogicError(
-                        f"The task preprocessing row {item} has been cancelled.",
-                        debug={"item": item, "row": df.iloc[item]},
-                    )
-                elif task.exception() is not None:
-                    raise LogicError(
-                        f"Exception raised during preprocessing row {item}.",
-                        debug={"item": item, "row": df.iloc[item]},
-                        causing_error=task.exception(),
-                    )
+            if not task.done():
+                new_P1.append((item, task))
+                continue
+
+            if task.cancelled():
+                raise LogicError(
+                    f"The task preprocessing row {item} has been cancelled.",
+                    debug={"item": item, "row": df.iloc[item]},
+                )
+            elif task.exception() is not None:
+                raise LogicError(
+                    f"Exception raised during preprocessing row {item}.",
+                    debug={"item": item, "row": df.iloc[item]},
+                    causing_error=task.exception(),
+                )
+            else:
+                retval = task.result()
+                if isinstance(retval, dict):
+                    Q2.append((item, retval))
+                elif isinstance(retval, pd.Series):
+                    P4.append((item, retval))
+                elif (retval is None) and skip_null:
+                    pass
                 else:
-                    retval = task.result()
-                    if isinstance(retval, dict):
-                        Q2.put((item, retval))
-                    elif isinstance(retval, pd.Series):
-                        P4.append((item, retval))
-                    elif (retval is None) and skip_null:
-                        pass
-                    else:
-                        raise RuntimeError(
-                            f"The preprocessing function returns an unexpected type: {type(retval)}."
-                        )
+                    raise RuntimeError(
+                        f"The preprocessing function returns an unexpected type: {type(retval)}."
+                    )
+        P1 = new_P1
 
         # Q1: check for items pending to be preprocessed and delegate preprocessing tasks for them
-        while len(P1) < max_concurrent_preprocessing_items and not Q1.empty():
-            item = Q1.get()
+        while len(P1) < max_concurrent_preprocessing_items and Q1:
+            item = Q1.pop(0)
             row = df.iloc[item]
             task = asyncio.ensure_future(
                 preprocess_func(
@@ -987,7 +997,7 @@ async def process_dataframe_in_batches(
             )
             P1.append((item, task))
 
-        if Q1.empty() and not P1 and Q2.empty() and not P2 and Q3.empty() and not P3:
+        if not (Q1 or P1 or Q2 or P2 or Q3 or P3):
             break
 
     P4 = sorted(P4, key=lambda x: x[0])  # sort in ascending item id
