@@ -889,6 +889,11 @@ async def process_dataframe_in_batches(
                     P4.append((item, retval))
                     if bar:
                         bar.update()
+                elif isinstance(retval, dict):
+                    out_series = pd.Series(data=retval)
+                    P4.append((item, out_series))
+                    if bar:
+                        bar.update()
                 elif (retval is None) and skip_null:
                     pass
                 else:
