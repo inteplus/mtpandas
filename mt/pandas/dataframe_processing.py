@@ -829,6 +829,9 @@ async def process_dataframe_in_batches(
     """
 
     if len(df) == 0:
+        if logger:
+            msg = f"Input dataframe is empty. Returning an empty dataframe without processing."
+            logger.warn(msg)
         return pd.DataFrame(data=[])
 
     if not context_vars["async"]:
@@ -847,6 +850,14 @@ async def process_dataframe_in_batches(
     P3 = []  # list of (item, task) pairs being postprocessed
     P4 = []  # list of items that have gone through the pipeline
 
+    if logger:
+        msg = (
+            f"Processing dataframe with {N} rows using process_dataframe_in_batches()."
+        )
+        logger.info(msg)
+        bar = tqdm(total=N, unit="row")
+    else:
+        bar = None
     while True:
         await asyncio.sleep(0)
 
@@ -872,6 +883,8 @@ async def process_dataframe_in_batches(
                 retval = task.result()
                 if isinstance(retval, pd.Series):
                     P4.append((item, retval))
+                    if bar:
+                        bar.update()
                 elif (retval is None) and skip_null:
                     pass
                 else:
@@ -919,6 +932,8 @@ async def process_dataframe_in_batches(
                 elif isinstance(retval, list):
                     for item, out_series in zip(items, retval):
                         P4.append((item, out_series))
+                        if bar:
+                            bar.update()
                 elif (retval is None) and skip_null:
                     pass
                 else:
@@ -973,6 +988,8 @@ async def process_dataframe_in_batches(
                     Q2.append((item, retval))
                 elif isinstance(retval, pd.Series):
                     P4.append((item, retval))
+                    if bar:
+                        bar.update()
                 elif (retval is None) and skip_null:
                     pass
                 else:
@@ -999,6 +1016,8 @@ async def process_dataframe_in_batches(
 
         if not (Q1 or P1 or Q2 or P2 or Q3 or P3):
             break
+    if bar:
+        bar.close()
 
     P4 = sorted(P4, key=lambda x: x[0])  # sort in ascending item id
     out_rows = [x[1] for x in P4]
