@@ -863,9 +863,9 @@ async def process_dataframe_in_batches(
 
         logg.debug(f"Q1: {Q1}", logger=logger)
         logg.debug(f"P1: {[x[0] for x in P1]}", logger=logger)
-        logg.debug(f"Q2: {Q2}", logger=logger)
+        logg.debug(f"Q2: {[x[0] for x in Q2]}", logger=logger)
         logg.debug(f"P2: {[x[0] for x in P2]}", logger=logger)
-        logg.debug(f"Q3: {Q3}", logger=logger)
+        logg.debug(f"Q3: {[x[0] for x in Q3]}", logger=logger)
         logg.debug(f"P3: {[x[0] for x in P3]}", logger=logger)
 
         # P3: check for (item, task) pairs that have been postprocessed
