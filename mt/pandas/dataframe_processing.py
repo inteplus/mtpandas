@@ -939,7 +939,7 @@ async def process_dataframe_in_batches(
             else:
                 retval = task.result()
                 if isinstance(retval, dict):
-                    for item in items:
+                    for i, item in enumerate(items):
                         Q3.append((item, {k: v[i] for k, v in retval.items()}))
                 elif isinstance(retval, list):
                     for item, out_series in zip(items, retval):
