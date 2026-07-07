@@ -25,8 +25,8 @@ setup(
         "colorama",  # for mt.pandas.parallel_apply's logger (vendored from pandas_parallel_apply)
         #'h5py>=3', # for pdh5 file format. Lazy import because TX2 may not need it.
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
-        "mtbase>=4.33.3",  # just updating
-        "mtopencv>=1.11.3",  # just updating
+        "mtbase>=4.33.31",  # just updating
+        "mtopencv>=1.12.0",  # just updating
         "tqdm",  # for drawing progress bars
         "tabview",  # for viewing spreadsheet-like files
         "piso",  # for pandas interval set operations
