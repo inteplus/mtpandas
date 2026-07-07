@@ -2,7 +2,7 @@
 
 import pandas as pd
 from tqdm.auto import tqdm
-from pandas_parallel_apply import DataFrameParallel
+from mt.pandas.parallel_apply import DataFrameParallel
 
 from mt import tp, logg, ctx, asyncio
 from mt.base import LogicError
@@ -301,7 +301,7 @@ def parallel_apply(
 ) -> pd.Series:
     """Parallel-applies a function on every row or column of a pandas.DataFrame, optionally with a progress bar.
 
-    The method wraps class:`pandas_parallel_apply.DataFrameParallel`. The default axis is on rows.
+    The method wraps class:`mt.pandas.parallel_apply.DataFrameParallel`. The default axis is on rows.
     The progress bars are shown if and only if a logger is provided.
 
     Parameters
@@ -313,10 +313,10 @@ def parallel_apply(
     axis : {0,1}
         axis of applying. 1 for rows (default). 0 for columns.
     n_cores : int
-        number of CPUs to use. Passed as-is to :class:`pandas_parallel_apply.DataFrameParallel`.
+        number of CPUs to use. Passed as-is to :class:`mt.pandas.parallel_apply.DataFrameParallel`.
     parallelism : {'multithread', 'multiprocess'}
         multi-threading or multi-processing. Passed as-is to
-        :class:`pandas_parallel_apply.DataFrameParallel`.
+        :class:`mt.pandas.parallel_apply.DataFrameParallel`.
     logger : mt.logg.IndentedLoggerAdapter, optional
         logger for debugging purposes.
     scoped_msg : str, optional
@@ -329,7 +329,7 @@ def parallel_apply(
 
     See Also
     --------
-    pandas_parallel_apply.DataFrameParallel
+    mt.pandas.parallel_apply.DataFrameParallel
         the wrapped class for the parallel_apply purpose
     """
 
@@ -360,7 +360,7 @@ def parallel_groupby_apply(
 ) -> tp.Union[pd.DataFrame, pd.Series, tp.Any]:
     """Parallel-applies a function on every group of a pandas.DataFrame, optionally with a progress bar.
 
-    The method wraps class:`pandas_parallel_apply.DataFrameParallel`. The `groupby_cols` list is
+    The method wraps class:`mt.pandas.parallel_apply.DataFrameParallel`. The `groupby_cols` list is
     passed as-is to the underlying :func:`DataFrameParallel.groupby` function. The progress bars
     are shown if and only if a logger is provided.
 
@@ -378,10 +378,10 @@ def parallel_groupby_apply(
     func_kwds : dict, optional
         additional keyword arguments to be passed to the function
     n_cores : int
-        number of CPUs to use. Passed as-is to :class:`pandas_parallel_apply.DataFrameParallel`.
+        number of CPUs to use. Passed as-is to :class:`mt.pandas.parallel_apply.DataFrameParallel`.
     parallelism : {'multithread', 'multiprocess'}
         multi-threading or multi-processing. Passed as-is to
-        :class:`pandas_parallel_apply.DataFrameParallel`.
+        :class:`mt.pandas.parallel_apply.DataFrameParallel`.
     logger : mt.logg.IndentedLoggerAdapter, optional
         logger for debugging purposes.
     scoped_msg : str, optional
@@ -394,7 +394,7 @@ def parallel_groupby_apply(
 
     See Also
     --------
-    pandas_parallel_apply.DataFrameParallel
+    mt.pandas.parallel_apply.DataFrameParallel
         the wrapped class for the parallel_apply purpose
     """
 

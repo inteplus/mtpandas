@@ -3,7 +3,7 @@
 import numpy as np
 from tqdm.auto import tqdm
 import pandas as pd
-from pandas_parallel_apply import SeriesParallel
+from mt.pandas.parallel_apply import SeriesParallel
 
 from mt import tp, logg, ctx
 
@@ -181,7 +181,7 @@ def series_parallel_apply(
 ) -> pd.Series:
     """Parallel-applies a function on every item of a pandas.Series, optionally with a progress bar.
 
-    The method wraps class:`pandas_parallel_apply.SeriesParallel`. The progress bars are shown if
+    The method wraps class:`mt.pandas.parallel_apply.SeriesParallel`. The progress bars are shown if
     and only if a logger is provided.
 
     Parameters
@@ -192,10 +192,10 @@ def series_parallel_apply(
         a function to map each item of the series to something. It must be pickable for parallel
         processing.
     n_cores : int
-        number of CPUs to use. Passed as-is to :class:`pandas_parallel_apply.SeriesParallel`.
+        number of CPUs to use. Passed as-is to :class:`mt.pandas.parallel_apply.SeriesParallel`.
     parallelism : {'multithread', 'multiprocess'}
         multi-threading or multi-processing. Passed as-is to
-        :class:`pandas_parallel_apply.SeriesParallel`.
+        :class:`mt.pandas.parallel_apply.SeriesParallel`.
     logger : mt.logg.IndentedLoggerAdapter, optional
         logger for debugging purposes.
     scoped_msg : str, optional
@@ -208,7 +208,7 @@ def series_parallel_apply(
 
     See Also
     --------
-    pandas_parallel_apply.SeriesParallel
+    mt.pandas.parallel_apply.SeriesParallel
         the wrapped class for the parallel_apply purpose
     """
 
