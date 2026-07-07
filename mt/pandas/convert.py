@@ -128,7 +128,16 @@ def dfunpack(df, spinner=None):
 
             def unpack_ndarray(row):
                 ravel = row[key2 + "_df_nd_ravel"]
-                dtype = np.dtype(row[key2 + "_df_nd_dtype"])
+                if ravel is None or (
+                    not isinstance(ravel, (np.ndarray, list)) and pd.isna(ravel)
+                ):
+                    return None
+                dtype_val = row[key2 + "_df_nd_dtype"]
+                if dtype_val is None or (
+                    not isinstance(dtype_val, str) and pd.isna(dtype_val)
+                ):
+                    return None
+                dtype = np.dtype(dtype_val)
                 if isinstance(ravel, np.ndarray):  # already a 1D array?
                     ravel = ravel.astype(dtype)
                 else:  # list or something else?
