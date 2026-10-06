@@ -29,8 +29,10 @@ setup(
         "mtopencv>=1.12.0",  # just updating
         "tqdm",  # for drawing progress bars
         "tabview",  # for viewing spreadsheet-like files
-        "piso",  # for pandas interval set operations
     ],
+    extras_require={
+        "interval": ["piso"],  # for pandas interval set operations
+    },
     python_requires=">=3.6",  # we still have to support TX1 modules
     scripts=[
         "scripts/dfconvert",
