@@ -460,8 +460,9 @@ class MyQueenBee(beehive.QueenBee):
                 else:
                     msg, child_id = task.result()
                     if msg["status"] == "cancelled":
-                        text = "Cancelled delegated {} task to child {} of iteration {}".format(
-                            proc_str, child_id, pair_id
+                        text = (
+                            f"Cancelled delegated {proc_str} task to child {child_id} "
+                            f"of iteration {pair_id}"
                         )
                         with logg.scoped_debug(text, logger=self.logger, curly=False):
                             if (msg["reason"] is not None) and self.logger:
@@ -469,9 +470,9 @@ class MyQueenBee(beehive.QueenBee):
                         raise asyncio.CancelledError(text + ".")
                     elif msg["status"] == "raised":
                         text = (
-                            "Exception raised in the delegated {} task to child {} "
-                            "of iteration {}"
-                        ).format(proc_str, child_id, pair_id)
+                            f"Exception raised in the delegated {proc_str} task to child "
+                            f"{child_id} of iteration {pair_id}"
+                        )
                         with logg.scoped_debug(text, logger=self.logger, curly=False):
                             beehive.logger_debug_msg(msg, logger=self.logger)
                         raise msg["exception"]
@@ -494,10 +495,8 @@ class MyQueenBee(beehive.QueenBee):
                                 tvars.progress_bar.update()
                             else:
                                 raise RuntimeError(
-                                    "The delegated preprocessing function returns an "
-                                    "unexpected type: {}.".format(
-                                        type(retval)
-                                    )
+                                    f"The delegated preprocessing function returns an "
+                                    f"unexpected type: {type(retval)}."
                                 )
                         else:
                             if isinstance(retval, pd.Series):
@@ -507,10 +506,8 @@ class MyQueenBee(beehive.QueenBee):
                                 tvars.progress_bar.update()
                             else:
                                 raise RuntimeError(
-                                    "The delegated postprocessing function returns an "
-                                    "unexpected type: {}.".format(
-                                        type(retval)
-                                    )
+                                    f"The delegated postprocessing function returns an "
+                                    f"unexpected type: {type(retval)}."
                                 )
 
             return True

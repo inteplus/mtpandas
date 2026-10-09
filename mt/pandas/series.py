@@ -113,10 +113,9 @@ def to_categorical(series, value_list, missing_values="raise_exception", logger=
             df = df[df["cat"].isin(value_list)]
         else:
             raise ValueError(
-                "Unknown policy to deal with missing values: {}. Accepted policies are "
-                "'raise_exception', 'remove_and_warn' or 'remove_in_silence'.".format(
-                    missing_values
-                )
+                f"Unknown policy to deal with missing values: {missing_values}. "
+                "Accepted policies are "
+                "'raise_exception', 'remove_and_warn' or 'remove_in_silence'."
             )
 
     # cat id

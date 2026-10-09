@@ -98,9 +98,8 @@ def unpack_dataclass(
 
     if input_col not in df.columns:
         raise ValueError(
-            "Field '{}' does not exist in the given dataframe with columns '{}'.".format(
-                input_col, df.columns
-            )
+            f"Field '{input_col}' does not exist in the given dataframe with columns "
+            f"'{df.columns}'."
         )
 
     if klass is None:
