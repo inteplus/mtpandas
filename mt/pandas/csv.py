@@ -243,12 +243,16 @@ async def read_csv_asyn(
                 else:
                     data2 = None
                 return process(
-                    filepath, data1, data2, show_progress=show_progress, **kwargs
+                    filepath,
+                    io.StringIO(data1),
+                    data2,
+                    show_progress=show_progress,
+                    **kwargs
                 )
         else:
             fp1 = filepath
             data1 = await aio.read_text(fp1, context_vars=context_vars)
-            meta_filepath = path.basename(filepath)[:-4] + ".meta"
+            meta_filepath = filepath[:-4] + ".meta"
             if path.exists(meta_filepath):
                 data2 = await aio.read_text(meta_filepath, context_vars=context_vars)
             else:

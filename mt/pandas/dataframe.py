@@ -431,6 +431,18 @@ def parallel_apply(
         return dp.apply(func, axis)
 
 
+class _GroupFunc:
+    """A pickable callable that calls `func(group_df, *args, **kwds)`."""
+
+    def __init__(self, func, args, kwds):
+        self.func = func
+        self.args = args
+        self.kwds = kwds
+
+    def __call__(self, df):
+        return self.func(df, *self.args, **self.kwds)
+
+
 def parallel_groupby_apply(
     df: pd.DataFrame,
     groupby_cols: list,
@@ -460,9 +472,8 @@ def parallel_groupby_apply(
         or a scalar. In addition the callable may take positional and keyword arguments. It must
         be pickable for multiprocessing.
     func_args : tuple, optional
-        additional positional arguments to be passed to the function. Note that
-        :meth:`mt.pandas.parallel_apply.GroupByParallel.apply` currently accepts only `func`, so
-        a non-empty `func_args` or `func_kwds` raises a :class:`TypeError`.
+        additional positional arguments to be passed to the function after the group dataframe.
+        They must be pickable for multiprocessing too.
     func_kwds : dict, optional
         additional keyword arguments to be passed to the function. See `func_args`.
     n_cores : int
@@ -499,7 +510,9 @@ def parallel_groupby_apply(
         context = ctx.nullcontext()
 
     with context:
-        return dp.groupby(groupby_cols).apply(func, *func_args, **func_kwds)
+        if func_args or func_kwds:
+            func = _GroupFunc(func, func_args, func_kwds)
+        return dp.groupby(groupby_cols).apply(func)
 
 
 def warn_duplicate_records(

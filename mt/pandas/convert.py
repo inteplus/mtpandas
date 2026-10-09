@@ -436,8 +436,7 @@ def dfload(
 
     When `nrows` is given for a '.parquet' file, only the first batch of `nrows` rows is read and
     the positional and keyword arguments for the reader are ignored. A '.csv' file saved by
-    :func:`dfsave` has its column dtypes restored from the '.meta' file next to it, but the
-    '.meta' file is looked up by its base name only, relative to the current working directory.
+    :func:`dfsave` has its column dtypes restored from the '.meta' file next to it.
 
     Raises
     ------

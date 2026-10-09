@@ -63,6 +63,10 @@ def _apply_on_groupby_parallel(df_grouped: DataFrameGroupBy, func: Callable, n_c
         return df_grouped.apply(func)
 
     key_data, chunked_data = _chunk_df(df_grouped, n_cores)
+    keys = df_grouped.keys
+    if isinstance(keys, (list, tuple)) and len(keys) == 1:  # pandas yields 1-tuples as keys
+        key_data = [k[0] if isinstance(k, tuple) else k for k in key_data]
+        keys = keys[0]
 
     # Run the multi-process job
     pool = Pool(n_cores) if parallelism == "multiprocess" else ThreadPool(n_cores)
@@ -87,7 +91,15 @@ def _apply_on_groupby_parallel(df_grouped: DataFrameGroupBy, func: Callable, n_c
 
     # Fix the index
     res.index = key_data
-    res.index.name = df_grouped.keys
+    if isinstance(keys, (list, tuple)):  # several group keys
+        if not isinstance(res.index, MultiIndex) and len(res.index) > 0 and all(
+            isinstance(k, tuple) and len(k) == len(keys) for k in res.index
+        ):
+            res.index = MultiIndex.from_tuples(list(res.index), names=list(keys))
+        elif res.index.nlevels == len(keys):
+            res.index.names = list(keys)
+    else:
+        res.index.name = keys
     return res
 
 

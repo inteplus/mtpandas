@@ -91,12 +91,14 @@ class DataFrameParallel:
         Returns
         -------
         GroupByParallel
-            an object whose `apply` runs in parallel. Note that `parallelism` is currently passed
-            positionally into the `keep_original_indexes` argument of :class:`GroupByParallel`,
-            so the groupby always uses the default 'multiprocess' parallelism.
+            an object whose `apply` runs in parallel, using the same `n_cores`, `pbar` and
+            `parallelism` as this object.
         """
         return GroupByParallel(
-            self.df.groupby(*args, **kwargs), self.n_cores, self.pbar, self.parallelism
+            self.df.groupby(*args, **kwargs),
+            self.n_cores,
+            pbar=self.pbar,
+            parallelism=self.parallelism,
         )
 
     def __getitem__(self, x):

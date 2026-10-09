@@ -111,16 +111,10 @@ class WordAccessor:
         -------
         pandas.Series
             the series of words after substitution
-
-        Warning
-        -------
-        The implementation relies on :meth:`pandas.Series.str.replace` using regular expressions by
-        default, which is only true for pandas < 2.0. With pandas >= 2.0 it raises a
-        :class:`ValueError`.
         """
         pat = _re.compile("|".join(substr_map.keys()))
         repl = lambda m: substr_map[m.group(0)]
-        return self._obj.str.replace(pat, repl)
+        return self._obj.str.replace(pat, repl, regex=True)
 
     # ----- properties -----
 
@@ -154,12 +148,6 @@ class WordAccessor:
 
         For example, "ệ" becomes "ê." (base letter "ê" followed by the dot mark) and "á" becomes
         "a'". See also :attr:`split_vi_diacritical`.
-
-        Warning
-        -------
-        The implementation relies on :meth:`pandas.Series.str.replace` using regular expressions by
-        default, which is only true for pandas < 2.0. With pandas >= 2.0 it raises a
-        :class:`ValueError`.
         """
         return self.sub_map(self.vi_vowel_tone_inverse_map)
 
@@ -169,12 +157,6 @@ class WordAccessor:
         symbol representing the diacritical mark, in each word.
 
         For example, "ă" becomes "a{" and "đ" becomes "d-". See :attr:`vi_extended_letter_map`.
-
-        Warning
-        -------
-        The implementation relies on :meth:`pandas.Series.str.replace` using regular expressions by
-        default, which is only true for pandas < 2.0. With pandas >= 2.0 it raises a
-        :class:`ValueError`.
         """
         return self.sub_map(self.vi_extended_letter_map)
 
@@ -183,16 +165,11 @@ class WordAccessor:
         """Moves the first tone mark to the end of a word.
 
         It is meant to be applied on words processed by :attr:`split_vi_tone`.
-
-        Warning
-        -------
-        The implementation relies on :meth:`pandas.Series.str.replace` using regular expressions by
-        default, which is only true for pandas < 2.0. With pandas >= 2.0 it raises a
-        :class:`ValueError`.
         """
         return self._obj.str.replace(
             r"([^`'\?~\.]*)([`'\?~\.])(.*)",
             lambda x: x.group(1) + x.group(3) + x.group(2),
+            regex=True,
         )
 
     @property
@@ -200,16 +177,11 @@ class WordAccessor:
         """Truncates each word to the first occurence of a split Vietnamese mark.
 
         The mark itself is kept, everything after it is dropped.
-
-        Warning
-        -------
-        The implementation relies on :meth:`pandas.Series.str.replace` using regular expressions by
-        default, which is only true for pandas < 2.0. With pandas >= 2.0 it raises a
-        :class:`ValueError`.
         """
         return self._obj.str.replace(
-            r"([^\{\}-\^\[\]\+`'\?~\.]*)([\{\}-\^\[\]\+`'\?~\.])(.*)",
+            r"([^\{\}\-\^\[\]\+`'\?~\.]*)([\{\}\-\^\[\]\+`'\?~\.])(.*)",
             lambda x: x.group(1) + x.group(2),
+            regex=True,
         )
 
     @property
@@ -217,12 +189,6 @@ class WordAccessor:
         """Removes the tone marks in each Vietnamese word, keeping the base vowels.
 
         For example, "ệ" becomes "ê".
-
-        Warning
-        -------
-        The implementation relies on :meth:`pandas.Series.str.replace` using regular expressions by
-        default, which is only true for pandas < 2.0. With pandas >= 2.0 it raises a
-        :class:`ValueError`.
         """
         rep = {c: k for k, v in self.vi_vowel_tones.items() for c in v}
         return self.sub_map(rep)
@@ -233,17 +199,11 @@ class WordAccessor:
 
         Every character that is not a toned vowel is dropped, so the result contains only the tone
         mark symbols found in the word, in order.
-
-        Warning
-        -------
-        The implementation relies on :meth:`pandas.Series.str.replace` using regular expressions by
-        default, which is only true for pandas < 2.0. With pandas >= 2.0 it raises a
-        :class:`ValueError`.
         """
 
         l = "`'?~."
         rep = {v[i]: l[i] for k, v in self.vi_vowel_tones.items() for i in range(5)}
-        return self._obj.str.replace(".", lambda m: rep.get(m.group(0), ""))
+        return self._obj.str.replace(".", lambda m: rep.get(m.group(0), ""), regex=True)
 
     def ngram(self, n):
         """Returns a list letter n-grams for each word.

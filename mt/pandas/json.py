@@ -67,14 +67,16 @@ class JsonAccessor:
 
     @property
     def valid_sequence(self):
-        '''Returns which item is a valid sequence.
+        '''Returns a boolean series telling which item is a dict, a list or a string.
 
-        Warning
-        -------
-        The implementation calls ``isinstance(dict, list, str)`` with 3 arguments, which raises a
-        :class:`TypeError` for any non-empty series. The property is currently unusable.
+        Examples
+        --------
+        >>> import pandas as pd
+        >>> import mt.pandas
+        >>> pd.Series([{"a": 1}, [1, 2], "x", None, 3]).json.valid_sequence.tolist()
+        [True, True, True, False, False]
         '''
-        return self._obj.apply(lambda x: isinstance(dict, list, str))
+        return self._obj.apply(lambda x: isinstance(x, (dict, list, str)))
 
     @property
     def to_ndarray(self):
