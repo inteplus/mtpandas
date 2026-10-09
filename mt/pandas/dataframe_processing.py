@@ -396,7 +396,8 @@ class MyQueenBee(beehive.QueenBee):
                     batch = [x[k] for x in ld_inputTensors]
                 except KeyError:
                     raise traceback.LogicError(
-                        "Key does not exist in at least one item of the list of preprocessed results.",
+                        "Key does not exist in at least one item of the list of preprocessed "
+                        "results.",
                         debug={"key": k, "list": ld_inputTensors},
                     )
                 dl_inputTensors[k] = batch
@@ -411,7 +412,8 @@ class MyQueenBee(beehive.QueenBee):
             if isinstance(retval, dict):
                 if self.postprocess_func is None:
                     raise NotImplementedError(
-                        "Batchprocessing returns a dictionary but there is no postprocessing function to handle it."
+                        "Batchprocessing returns a dictionary but there is no postprocessing "
+                        "function to handle it."
                     )
                 tvars.batch_done_list.append((l_pairIds, retval))
             elif isinstance(retval, list):
@@ -470,9 +472,10 @@ class MyQueenBee(beehive.QueenBee):
                                 self.logger.debug("Reason: {}".format(msg["reason"]))
                         raise asyncio.CancelledError(text + ".")
                     elif msg["status"] == "raised":
-                        text = "Exception raised in the delegated {} task to child {} of iteration {}".format(
-                            proc_str, child_id, pair_id
-                        )
+                        text = (
+                            "Exception raised in the delegated {} task to child {} "
+                            "of iteration {}"
+                        ).format(proc_str, child_id, pair_id)
                         with logg.scoped_debug(text, logger=self.logger, curly=False):
                             beehive.logger_debug_msg(msg, logger=self.logger)
                         raise msg["exception"]
@@ -482,7 +485,8 @@ class MyQueenBee(beehive.QueenBee):
                             if isinstance(retval, dict):
                                 if self.batchprocess_func is None:
                                     raise NotImplementedError(
-                                        "Preprocessing returns a dictionary but there is no batchprocessing function to process it."
+                                        "Preprocessing returns a dictionary but there is no "
+                                        "batchprocessing function to process it."
                                     )
                                 tvars.pre_done_dtask_map[pair_id] = retval
                             elif isinstance(
@@ -494,7 +498,8 @@ class MyQueenBee(beehive.QueenBee):
                                 tvars.progress_bar.update()
                             else:
                                 raise RuntimeError(
-                                    "The delegated preprocessing function returns an unexpected type: {}.".format(
+                                    "The delegated preprocessing function returns an "
+                                    "unexpected type: {}.".format(
                                         type(retval)
                                     )
                                 )
@@ -506,7 +511,8 @@ class MyQueenBee(beehive.QueenBee):
                                 tvars.progress_bar.update()
                             else:
                                 raise RuntimeError(
-                                    "The delegated postprocessing function returns an unexpected type: {}.".format(
+                                    "The delegated postprocessing function returns an "
+                                    "unexpected type: {}.".format(
                                         type(retval)
                                     )
                                 )
@@ -947,7 +953,8 @@ async def process_dataframe_in_batches(
                     )
         P2 = new_P2
 
-        # Q2: check for items pending to be batchprocessed and delegate batchprocessing tasks for them
+        # Q2: check for items pending to be batchprocessed and delegate batchprocessing tasks
+        # for them
         while len(Q2) >= batch_size or (len(P1) == 0 and len(Q1) == 0 and len(Q2) > 0):
             items = []
             batch_tensor_dict = {}

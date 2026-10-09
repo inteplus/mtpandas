@@ -43,7 +43,9 @@ class JsonAccessor:
             if x is None:
                 return None
             if not isinstance(x, _np.ndarray):
-                raise AttributeError("Expected an ndarray, received an object of type '{}' instead.".format(type(x)))
+                raise AttributeError(
+                    "Expected an ndarray, received an object of type '{}' instead.".format(type(x))
+                )
             return x.tolist()
         return self._obj.apply(func)
         
@@ -60,6 +62,8 @@ class JsonAccessor:
             if x is None:
                 return None
             if not isinstance(x, str):
-                raise AttributeError("Expected a string, received an object of type '{}' instead.".format(type(x)))
+                raise AttributeError(
+                    "Expected a string, received an object of type '{}' instead.".format(type(x))
+                )
             return json.loads(x)
         return self._obj.apply(func)

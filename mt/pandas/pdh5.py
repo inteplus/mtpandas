@@ -134,7 +134,8 @@ def save_pdh5_columns(f, df: pd.DataFrame, spinner=None):
             pass
         elif dftype == "str":
             # If we save in 'S' dtype, it cannot deal with non-ascii characters.
-            # If we save in h5py.string_dtype() dtype, we get "VLEN strings do not support embedded NULLs".
+            # If we save in h5py.string_dtype() dtype, we get "VLEN strings do not support
+            # embedded NULLs".
             # What should we do?
             import h5py
 

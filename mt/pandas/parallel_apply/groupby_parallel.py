@@ -49,8 +49,9 @@ def _chunk_df(df_grouped: DataFrameGroupBy, n_cores: int) -> List[List]:
     assert n_cores == len(chunked_data)
     return key_data, chunked_data
 
-def _apply_on_groupby_parallel(df_grouped: DataFrameGroupBy, func: Callable, n_cores: int, pbar: bool,
-                              keep_original_indexes: bool, parallelism: str) -> Union[pd.DataFrame, pd.Series]:
+def _apply_on_groupby_parallel(df_grouped: DataFrameGroupBy, func: Callable, n_cores: int,
+                              pbar: bool, keep_original_indexes: bool,
+                              parallelism: str) -> Union[pd.DataFrame, pd.Series]:
     assert parallelism in ("multiprocess", "multithread"), parallelism
     n_cores = get_n_cores(n_cores, df_grouped)
     if n_cores == 0:

@@ -27,7 +27,8 @@ def get_dftype(s):
 
     Returns
     -------
-    {'json', 'ndarray', 'SparseNdarray', 'Image', 'str', 'Timestamp','Timedelta', 'object', 'none', etc}
+    {'json', 'ndarray', 'SparseNdarray', 'Image', 'str', 'Timestamp','Timedelta', 'object',
+    'none', etc}
         the type of the series. If it is a normal series, the string representing the dtype
         attribute of the series is returned
     '''

@@ -107,12 +107,14 @@ class WordAccessor:
 
     @property
     def split_vi_tone(self):
-        """Splits any Vietnamese toned letter into its base letter followed by a symbol representing the tone mark `(`'?~.)`, in each word."""
+        """Splits any Vietnamese toned letter into its base letter followed by a symbol representing
+        the tone mark `(`'?~.)`, in each word."""
         return self.sub_map(self.vi_vowel_tone_inverse_map)
 
     @property
     def split_vi_diacritical(self):
-        """Splits any untoned diacritical Vietnamese letter into its base letter followed by a symbol representing the diacritical mark, in each word."""
+        """Splits any untoned diacritical Vietnamese letter into its base letter followed by a
+        symbol representing the diacritical mark, in each word."""
         return self.sub_map(self.vi_extended_letter_map)
 
     @property
@@ -156,7 +158,8 @@ class WordAccessor:
         Returns
         -------
         pandas.Series
-            each element of the returning series is a list of n-grams of the corresponding element in the input series
+            each element of the returning series is a list of n-grams of the corresponding element
+            in the input series
 
         Raises
         ------

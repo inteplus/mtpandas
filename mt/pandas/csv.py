@@ -156,7 +156,8 @@ async def read_csv_asyn(
                 elif y == "Int64":
                     df[x] = df[x].astype(pd.Int64Dtype())
                 elif y == "bool":
-                    # dd is very strict at reading a csv. It may read True as 'True' and False as 'False'.
+                    # dd is very strict at reading a csv. It may read True as 'True' and
+                    # False as 'False'.
                     df[x] = (
                         df[x]
                         .replace("True", True)
@@ -216,7 +217,11 @@ async def read_csv_asyn(
 
 
 read_csv_asyn.__doc__ = (
-    """An asyn function that read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'context_vars' is a dictionary of context variables within which the function runs. It must include `context_vars['async']` to tell whether to invoke the function asynchronously or not.\n"""
+    "An asyn function that read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing "
+    "all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to "
+    "show progress in the terminal. Keyword 'context_vars' is a dictionary of context variables "
+    "within which the function runs. It must include `context_vars['async']` to tell whether to "
+    "invoke the function asynchronously or not.\n"
     + pd.read_csv.__doc__
 )
 
@@ -226,7 +231,9 @@ def read_csv(filepath, show_progress=False, **kwargs):
 
 
 read_csv.__doc__ = (
-    """Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to :func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in the terminal.\n"""
+    "Read a CSV file or a CSV-zipped file into a pandas.DataFrame, passing all arguments to "
+    ":func:`pandas.read_csv`. Keyword argument 'show_progress' tells whether to show progress in "
+    "the terminal.\n"
     + pd.read_csv.__doc__
 )
 
@@ -346,7 +353,15 @@ async def to_csv_asyn(
 
 
 to_csv_asyn.__doc__ = (
-    """An asyn function that writes DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword 'context_vars' is a dictionary of context variables within which the function runs. Keyword 'file_write_delayed' (see :func:`mt.base.aio.files.write_binary`) is now acceptable. It must include `context_vars['async']` to tell whether to invoke the function asynchronously or not. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n"""
+    "An asyn function that writes DataFrame to a comma-separated values (.csv) file or a "
+    "CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is "
+    "written if and only if it has a name. Keyword argument 'show_progress' tells whether to show"
+    " progress in the terminal. Keyword 'file_mode' specifies the file mode when writing (passed "
+    "directly to os.chmod if not None). Keyword 'context_vars' is a dictionary of context "
+    "variables within which the function runs. Keyword 'file_write_delayed' (see "
+    ":func:`mt.base.aio.files.write_binary`) is now acceptable. It must include "
+    "`context_vars['async']` to tell whether to invoke the function asynchronously or not. The "
+    "remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n"
     + pd.DataFrame.to_csv.__doc__
 )
 
@@ -364,6 +379,12 @@ def to_csv(df, filepath, index="auto", file_mode=0o664, show_progress=False, **k
 
 
 to_csv.__doc__ = (
-    """Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If keyword 'index' is 'auto' (default), the index column is written if and only if it has a name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod if not None). Keyword argument 'show_progress' tells whether to show progress in the terminal. Keyword 'file_write_delayed' (see :func:`mt.base.aio.files.write_binary`) is now acceptable. The remaining arguments and keywords are passed directly to :func:`DataFrame.to_csv`.\n"""
+    "Write DataFrame to a comma-separated values (.csv) file or a CSV-zipped (.csv.zip) file. If "
+    "keyword 'index' is 'auto' (default), the index column is written if and only if it has a "
+    "name. Keyword 'file_mode' specifies the file mode when writing (passed directly to os.chmod "
+    "if not None). Keyword argument 'show_progress' tells whether to show progress in the "
+    "terminal. Keyword 'file_write_delayed' (see :func:`mt.base.aio.files.write_binary`) is now "
+    "acceptable. The remaining arguments and keywords are passed directly to "
+    ":func:`DataFrame.to_csv`.\n"
     + pd.DataFrame.to_csv.__doc__
 )

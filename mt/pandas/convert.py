@@ -32,7 +32,8 @@ def array2list(x):
 def dfpack(df, spinner=None):
     """Packs a dataframe into a more compact format.
 
-    At the moment, it converts each ndarray column into 3 columns, and each cv.Image column into a json column.
+    At the moment, it converts each ndarray column into 3 columns, and each cv.Image column into a
+    json column.
 
     Parameters
     ----------
@@ -208,7 +209,8 @@ async def dfload_asyn(
     Notes
     -----
     For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we
-    use :func:`pandas.read_parquet`. For `.pdh5` files, we use :func:`mt.pandas.pdh5.load_pdh5_asyn`.
+    use :func:`pandas.read_parquet`. For `.pdh5` files, we use
+    :func:`mt.pandas.pdh5.load_pdh5_asyn`.
 
     Raises
     ------
@@ -217,7 +219,10 @@ async def dfload_asyn(
     """
 
     if max_rows is not None:
-        msg = "In function dfload_asyn, argument 'max_rows' is deprecated and should be replaced by 'nrows'."
+        msg = (
+            "In function dfload_asyn, argument 'max_rows' is deprecated and should be "
+            "replaced by 'nrows'."
+        )
         warnings.warn(msg)
         nrows = max_rows
 
@@ -268,9 +273,9 @@ async def dfload_asyn(
                         if show_progress:
                             spinner.text = "converting column: {}".format(x)
                         if df.dtypes[x] == np.dtype("O"):  # object
-                            df[x] = df[x].apply(
-                                array2list
-                            )  # because Parquet would save lists into nested numpy arrays which is not we expect yet.
+                            # because Parquet would save lists into nested numpy arrays
+                            # which is not we expect yet.
+                            df[x] = df[x].apply(array2list)
 
                 if unpack:
                     df = dfunpack(df, spinner=spinner)
@@ -350,7 +355,8 @@ def dfload(
     Notes
     -----
     For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we
-    use :func:`pandas.read_parquet`. For `.pdh5` files, we use :func:`mt.pandas.pdh5.load_pdh5_asyn`.
+    use :func:`pandas.read_parquet`. For `.pdh5` files, we use
+    :func:`mt.pandas.pdh5.load_pdh5_asyn`.
 
     Raises
     ------
@@ -459,9 +465,9 @@ async def dfsave_asyn(
 
                 kwargs = kwargs.copy()
                 if not "use_deprecated_int96_timestamps" in kwargs:
-                    kwargs["use_deprecated_int96_timestamps"] = (
-                        True  # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns] to timestamp[ms] would lose data: XXXXXXX
-                    )
+                    # to avoid exception pyarrow.lib.ArrowInvalid: Casting from timestamp[ns]
+                    # to timestamp[ms] would lose data: XXXXXXX
+                    kwargs["use_deprecated_int96_timestamps"] = True
                 data = df.to_parquet(None, **kwargs)
                 res = await aio.write_binary(
                     df_filepath,

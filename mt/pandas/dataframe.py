@@ -88,7 +88,8 @@ async def row_transform_asyn(
     context_vars: dict = {},
     logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
 ) -> pd.DataFrame:
-    """Transforms each row of a :class:`pandas.DataFrame` to another row, using an asyn function, and optionally with a progress bar.
+    """Transforms each row of a :class:`pandas.DataFrame` to another row, using an asyn function,
+    and optionally with a progress bar.
 
     The order of the rows being transformed is not preserved.
 
@@ -299,9 +300,11 @@ def parallel_apply(
     logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
     scoped_msg: tp.Optional[str] = None,
 ) -> pd.Series:
-    """Parallel-applies a function on every row or column of a pandas.DataFrame, optionally with a progress bar.
+    """Parallel-applies a function on every row or column of a pandas.DataFrame, optionally with a
+    progress bar.
 
-    The method wraps class:`mt.pandas.parallel_apply.DataFrameParallel`. The default axis is on rows.
+    The method wraps class:`mt.pandas.parallel_apply.DataFrameParallel`. The default axis is on
+    rows.
     The progress bars are shown if and only if a logger is provided.
 
     Parameters
@@ -358,7 +361,8 @@ def parallel_groupby_apply(
     logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
     scoped_msg: tp.Optional[str] = None,
 ) -> tp.Union[pd.DataFrame, pd.Series, tp.Any]:
-    """Parallel-applies a function on every group of a pandas.DataFrame, optionally with a progress bar.
+    """Parallel-applies a function on every group of a pandas.DataFrame, optionally with a progress
+    bar.
 
     The method wraps class:`mt.pandas.parallel_apply.DataFrameParallel`. The `groupby_cols` list is
     passed as-is to the underlying :func:`DataFrameParallel.groupby` function. The progress bars

@@ -13,8 +13,8 @@ from .logger import logger
 
 def get_n_cores(n_cores: int, df: Union[pd.DataFrame, pd.Series]) -> int:
     """
-    Returns the actual n_cores used for the parallel operation. cpu_count() represents the total amount of phyisical
-    cores. Possible cases:
+    Returns the actual n_cores used for the parallel operation. cpu_count() represents the total
+    amount of phyisical cores. Possible cases:
     - n_cores < -1: will throw an AssertionError
     - n_cores = -1: will return cpu_count() - 1
     - n_cores in [0, cpu_count()]: will return the number as is
@@ -23,17 +23,24 @@ def get_n_cores(n_cores: int, df: Union[pd.DataFrame, pd.Series]) -> int:
     assert n_cores >= -1, f"n_cores cannot be negative, except -1. Got {n_cores}"
     if n_cores == -1:
         n_cores = cpu_count() - 1
-        logger.debug(f"n_cores -1 was provided. Using total number of physical cores - 1: {n_cores}")
+        logger.debug(
+            f"n_cores -1 was provided. Using total number of physical cores - 1: {n_cores}"
+        )
     if n_cores > cpu_count():
-        logger.warning(f"n_cores is greater than the number of physical cores: {n_cores} vs {cpu_count()}")
+        logger.warning(
+            f"n_cores is greater than the number of physical cores: {n_cores} vs {cpu_count()}"
+        )
     if n_cores > len(df):
-        logger.warning(f"n_cores is greater than the length of the df, return that: {n_cores} vs {len(df)}")
+        logger.warning(
+            f"n_cores is greater than the length of the df, return that: {n_cores} vs {len(df)}"
+        )
         n_cores = len(df)
     return n_cores
 
 # pylint: disable=protected-access
 def _worker_fn(df: pd.DataFrame, fn: Callable, pbar: bool, kwargs: dict):
-    """worker_fn: calls df.progress_apply or df.apply. For pbar, will use position based on thread/process index"""
+    """worker_fn: calls df.progress_apply or df.apply. For pbar, will use position based on
+    thread/process index"""
     if not pbar:
         return df.apply(fn, **kwargs)
 
@@ -49,7 +56,8 @@ def _worker_fn(df: pd.DataFrame, fn: Callable, pbar: bool, kwargs: dict):
 
 def parallelize_dataframe(df: Union[pd.DataFrame, pd.Series], func: Callable, n_cores: int,
                           pbar: bool, parallelism: str, **kwargs) -> pd.DataFrame:
-    """Function used to split a dataframe in n sub dataframes, based on the number of cores we want to use."""
+    """Function used to split a dataframe in n sub dataframes, based on the number of cores we
+    want to use."""
     assert parallelism in ("multiprocess", "multithread"), parallelism
     n_cores = get_n_cores(n_cores, df)
     if n_cores == 0:

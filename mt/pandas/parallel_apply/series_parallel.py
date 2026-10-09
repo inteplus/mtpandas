@@ -12,7 +12,9 @@ from .utils import parallelize_dataframe
 
 class SeriesParallel:
     """SeriesParallel implementation"""
-    def __init__(self, series: pd.Series, n_cores: int, pbar: bool = True, parallelism: str = "multiprocess"):
+    def __init__(
+        self, series: pd.Series, n_cores: int, pbar: bool = True, parallelism: str = "multiprocess"
+    ):
         self.series = series
         self.n_cores = n_cores
         self.pbar = pbar

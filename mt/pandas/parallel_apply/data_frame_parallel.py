@@ -18,7 +18,9 @@ from .utils import parallelize_dataframe
 
 class DataFrameParallel:
     """DataFrameParallel implementation"""
-    def __init__(self, df: pd.DataFrame, n_cores: int, pbar: bool = True, parallelism: str = "multiprocess"):
+    def __init__(
+        self, df: pd.DataFrame, n_cores: int, pbar: bool = True, parallelism: str = "multiprocess"
+    ):
         self.df = df
         self.n_cores = n_cores
         self.pbar = pbar
@@ -28,11 +30,15 @@ class DataFrameParallel:
     def apply(self, func, axis, raw: bool = False, result_type = None, args=(), **kwargs):
         """Wrapper on top of regular df.apply(fn)"""
         assert axis == 1, "Only axis=1 is supported in parallel df apply"
-        return parallelize_dataframe(self.df, func, self.n_cores, self.pbar, self.parallelism, axis=axis, **kwargs)
+        return parallelize_dataframe(
+            self.df, func, self.n_cores, self.pbar, self.parallelism, axis=axis, **kwargs
+        )
 
     def groupby(self, *args, **kwargs):
         """Wrapper on top of regular df.groupby(col)"""
-        return GroupByParallel(self.df.groupby(*args, **kwargs), self.n_cores, self.pbar, self.parallelism)
+        return GroupByParallel(
+            self.df.groupby(*args, **kwargs), self.n_cores, self.pbar, self.parallelism
+        )
 
     def __getitem__(self, x):
         return SeriesParallel(self.df[x], self.n_cores, self.pbar, self.parallelism)

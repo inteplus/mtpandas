@@ -32,7 +32,9 @@ try:
         4: logging.DEBUG4,
     }[env_var]
 except KeyError:
-    sys.stderr.write(f"You tried to use {KEY}_LOGLEVEL={env_var}. You need to set it between -1 and 4\n")
+    sys.stderr.write(
+        f"You tried to use {KEY}_LOGLEVEL={env_var}. You need to set it between -1 and 4\n"
+    )
     sys.exit(1)
 # add the custom ones in the logger
 logging.addLevelName(logging.DEBUG2, "DGB2")
@@ -47,7 +49,8 @@ class CustomFormatter(logging.Formatter):
     pre = "[%(asctime)s-%(name)s-%(levelname)s]"
     post = "(%(filename)s:%(funcName)s:%(lineno)d)"
 
-    # Example [TIME:LEVEL:NAME] Message [FILE:FUNC:LINE]. We can update some other format here easily
+    # Example [TIME:LEVEL:NAME] Message [FILE:FUNC:LINE]. We can update some other format here
+    # easily
     FORMATS = {
         logging.DEBUG: f"{Fore.CYAN}{pre}{reset} %(message)s {Fore.YELLOW}{post}{reset}",
         logging.DEBUG2: f"{Fore.CYAN}{pre}{reset} %(message)s {Fore.YELLOW}{post}{reset}",
