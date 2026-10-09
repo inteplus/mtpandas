@@ -172,7 +172,7 @@ class WordAccessor:
         """
         if not isinstance(n, int) or n < 2:
             raise ValueError(
-                "Expected n to be integer greater than 1, given {}.".format(n)
+                f"Expected n to be integer greater than 1, given {n}."
             )
         return self._obj.apply(lambda x: [x[i : i + n] for i in range(len(x) - n + 1)])
 

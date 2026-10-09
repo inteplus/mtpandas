@@ -87,7 +87,7 @@ async def read_csv_asyn(
         return df
 
     def process(filepath, data1: io.StringIO, data2, show_progress=False, **kwargs):
-        text = "dfloading '{}'".format(filepath)
+        text = f"dfloading '{filepath}'"
         spinner = HaloAuto(text=text, spinner="dots", enabled=show_progress)
         spinner.start()
         ts = pd.Timestamp.now()
@@ -100,13 +100,13 @@ async def read_csv_asyn(
             dfs.append(df)
             cnt += len(df)
             td = (pd.Timestamp.now() - ts).total_seconds() + 0.001
-            s = "{} rows ({} rows/sec)".format(cnt, cnt / td)
+            s = f"{cnt} rows ({cnt / td} rows/sec)"
             spinner.text = s
         df = pd.concat(dfs, sort=False)
 
         # If '.meta' file exists, assume general csv file and use pandas to read.
         if data2 is None:  # no meta
-            text = "dfloaded {} rows from '{}'".format(cnt, filepath)
+            text = f"dfloaded {cnt} rows from '{filepath}'"
             spinner.succeed(text)
             return postprocess(df)
 
@@ -120,9 +120,7 @@ async def read_csv_asyn(
             meta = None if data2 is None else json.loads(data2)
 
             if meta is None:
-                text = "dfloaded {} rows with no metadata from '{}'".format(
-                    cnt, filepath
-                )
+                text = f"dfloaded {cnt} rows with no metadata from '{filepath}'"
                 spinner.succeed(text)
                 return postprocess(df)
 
@@ -136,7 +134,7 @@ async def read_csv_asyn(
             # adjust the returning dataframe based on the given meta
             s = meta["columns"]
             for x in s:
-                spinner.text = "checking column '{}'".format(x)
+                spinner.text = f"checking column '{x}'"
                 y = s[x]
                 if y == "datetime64[ns]":
                     df[x] = pd.to_datetime(df[x])
@@ -167,17 +165,17 @@ async def read_csv_asyn(
                 elif y == "object":
                     pass
                 else:
-                    raise OSError("Unknown dtype for conversion {}".format(y))
+                    raise OSError(f"Unknown dtype for conversion {y}")
 
             # set the index_col if it exists
             if index_col is not None and len(index_col) > 0:
                 df = df.set_index(index_col, drop=True)
 
-            text = "dfloaded {} rows from '{}'".format(cnt, filepath)
+            text = f"dfloaded {cnt} rows from '{filepath}'"
             spinner.succeed(text)
         except:
             spinner.fail(
-                "dfloaded {} rows, then failed, from '{}'".format(cnt, filepath)
+                f"dfloaded {cnt} rows, then failed, from '{filepath}'"
             )
             raise
 
@@ -265,7 +263,7 @@ async def to_csv_asyn(
                 df[key] = df[key].apply(tolist)
 
     spinner = (
-        HaloAuto(text="dfsaving '{}'".format(filepath), spinner="dots")
+        HaloAuto(text=f"dfsaving '{filepath}'", spinner="dots")
         if show_progress
         else ctx.nullcontext()
     )
@@ -342,13 +340,13 @@ async def to_csv_asyn(
                 await path.rename_asyn(filepath2, filepath, context_vars=context_vars)
 
                 if isinstance(spinner, Halo):
-                    spinner.succeed("dfsaved '{}'".format(filepath))
+                    spinner.succeed(f"dfsaved '{filepath}'")
 
                 return res
 
         except:
             if isinstance(spinner, Halo):
-                spinner.succeed("failed to dfsave '{}'".format(filepath))
+                spinner.succeed(f"failed to dfsave '{filepath}'")
             raise
 
 

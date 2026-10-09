@@ -191,7 +191,7 @@ def sample_rows(
         rng = np.random.RandomState(seed=rng_seed)
         index_array = rng.choice(num_rows, size=num_iters, p=l_weights)
     else:
-        raise ValueError("Unknown iteration policy '{}'.".format(iter_policy))
+        raise ValueError(f"Unknown iteration policy '{iter_policy}'.")
 
     return [(x, rng_seed ^ hash_int(x)) for x in index_array]
 
@@ -424,7 +424,7 @@ class MyQueenBee(beehive.QueenBee):
                 tvars.progress_bar.update()
             else:
                 raise NotImplementedError(
-                    "Unexpected batchprocessing output type: {}.".format(type(retval))
+                    f"Unexpected batchprocessing output type: {type(retval)}."
                 )
 
             return True
@@ -450,15 +450,11 @@ class MyQueenBee(beehive.QueenBee):
                     is_pre = False
                     proc_str = "postprocessing"
                 if task.cancelled():
-                    text = "Cancelled iteration number {} during {}.".format(
-                        pair_id, proc_str
-                    )
+                    text = f"Cancelled iteration number {pair_id} during {proc_str}."
                     raise asyncio.CancelledError(msg)
                 elif task.exception() is not None:
                     if self.logger:
-                        text = "Exception raised during {} iteration {}:".format(
-                            proc_str, pair_id
-                        )
+                        text = f"Exception raised during {proc_str} iteration {pair_id}:"
                         self.logger.debug(text)
                     raise task.exception()
                 else:
@@ -469,7 +465,7 @@ class MyQueenBee(beehive.QueenBee):
                         )
                         with logg.scoped_debug(text, logger=self.logger, curly=False):
                             if (msg["reason"] is not None) and self.logger:
-                                self.logger.debug("Reason: {}".format(msg["reason"]))
+                                self.logger.debug(f"Reason: {msg['reason']}")
                         raise asyncio.CancelledError(text + ".")
                     elif msg["status"] == "raised":
                         text = (

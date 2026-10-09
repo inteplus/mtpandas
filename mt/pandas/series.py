@@ -102,12 +102,12 @@ def to_categorical(series, value_list, missing_values="raise_exception", logger=
     if len(df2) > 0:
         missing_list = df2["cat"].drop_duplicates().tolist()
         if missing_values == "raise_exception":
-            raise ValueError("Missing values detected: {}".format(missing_list))
+            raise ValueError(f"Missing values detected: {missing_list}")
         elif missing_values == "remove_and_warn":
             df = df[df["cat"].isin(value_list)]
             if logger:
                 logger.warn(
-                    "Missing values detected and removed: {}".format(missing_list)
+                    f"Missing values detected and removed: {missing_list}"
                 )
         elif missing_values == "remove_in_silence":
             df = df[df["cat"].isin(value_list)]

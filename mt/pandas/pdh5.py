@@ -30,7 +30,7 @@ def load_special_cell(grp, key, dftype):
         meta = json.loads(grp2.attrs["meta"])
         image = grp2["image"][:]
         return cv.Image(image, pixel_format=pixel_format, meta=meta)
-    raise ValueError("Unknown dftype while loading cells: '{}'.".format(dftype))
+    raise ValueError(f"Unknown dftype while loading cells: '{dftype}'.")
 
 
 class Pdh5Column:
@@ -94,7 +94,7 @@ def save_pdh5_index(f, df: pd.DataFrame, spinner=None):
     grp = f.create_group("index")
 
     if spinner is not None:
-        spinner.text = "saving index of type {}".format(type(index))
+        spinner.text = f"saving index of type {type(index)}"
 
     if isinstance(index, pd.RangeIndex):
         grp.attrs["type"] = "RangeIndex"
@@ -118,7 +118,7 @@ def save_pdh5_index(f, df: pd.DataFrame, spinner=None):
             grp.attrs["name"] = index.name
         data = grp.create_dataset(name="values", data=index.values, compression="gzip")
     else:
-        raise ValueError("Unsupported index type '{}'.".format(type(index)))
+        raise ValueError(f"Unsupported index type '{type(index)}'.")
 
 
 def save_pdh5_columns(f, df: pd.DataFrame, spinner=None):
@@ -127,7 +127,7 @@ def save_pdh5_columns(f, df: pd.DataFrame, spinner=None):
 
     for column in columns:
         if spinner is not None:
-            spinner.text = "saving column '{}'".format(column)
+            spinner.text = f"saving column '{column}'"
         key = "column_" + text_filename(column)
         dftype = columns[column]
         if dftype == "none":
@@ -201,7 +201,7 @@ def save_pdh5_columns(f, df: pd.DataFrame, spinner=None):
         else:
             data = df[column].apply(lambda x: type(x)).unique()
             raise ValueError(
-                "Unable to save column '{}' with type list '{}'.".format(column, data)
+                f"Unable to save column '{column}' with type list '{data}'."
             )
 
 
@@ -226,7 +226,7 @@ def save_pdh5(
         show a progress spinner in the terminal
     """
     if show_progress:
-        spinner = HaloAuto("dfsaving '{}'".format(filepath), spinner="dots")
+        spinner = HaloAuto(f"dfsaving '{filepath}'", spinner="dots")
         scope = spinner
     else:
         spinner = None
@@ -242,10 +242,10 @@ def save_pdh5(
             os.chmod(filepath2, file_mode)
         path.rename(filepath2, filepath, overwrite=True)
         if show_progress:
-            spinner.succeed("dfsaved '{}'".format(filepath))
+            spinner.succeed(f"dfsaved '{filepath}'")
     except:
         if show_progress:
-            spinner.fail("failed to dfsave '{}'".format(filepath))
+            spinner.fail(f"failed to dfsave '{filepath}'")
         raise
 
 
@@ -258,7 +258,7 @@ def load_pdh5_index(f, spinner=None, max_rows: tp.Optional[int] = None) -> pd.Da
 
     index_type = grp.attrs["type"]
     if spinner is not None:
-        spinner.text = "loading index of type {}".format(index_type)
+        spinner.text = f"loading index of type {index_type}"
 
     if index_type == "RangeIndex":
         start = grp.attrs.get("start", None)
@@ -284,7 +284,7 @@ def load_pdh5_index(f, spinner=None, max_rows: tp.Optional[int] = None) -> pd.Da
         else:
             index = pd.Index(data=values, dtype=grp.attrs["dtype"], name=name)
     else:
-        raise ValueError("Unsupported index type '{}'.".format(type(index)))
+        raise ValueError(f"Unsupported index type '{type(index)}'.")
 
     return pd.DataFrame(index=index)
 
@@ -303,7 +303,7 @@ def load_pdh5_columns(
 
     for column in columns:
         if spinner is not None:
-            spinner.text = "loading column '{}'".format(column)
+            spinner.text = f"loading column '{column}'"
         key = "column_" + text_filename(column)
         dftype = columns[column]
         if dftype == "none":
@@ -366,7 +366,7 @@ def load_pdh5_columns(
             df[column] = data
         else:
             raise ValueError(
-                "Unable to load column '{}' with dftype '{}'.".format(column, dftype)
+                f"Unable to load column '{column}' with dftype '{dftype}'."
             )
 
 
@@ -403,7 +403,7 @@ async def load_pdh5_asyn(
         the loaded dataframe
     """
     if show_progress:
-        spinner = HaloAuto("dfloading '{}'".format(filepath), spinner="dots")
+        spinner = HaloAuto(f"dfloading '{filepath}'", spinner="dots")
         scope = spinner
     else:
         spinner = None
@@ -439,9 +439,9 @@ async def load_pdh5_asyn(
                         spinner.text = "defragmenting the dataframe"
                     df = df.copy()
         if show_progress:
-            spinner.succeed("dfloaded '{}'".format(filepath))
+            spinner.succeed(f"dfloaded '{filepath}'")
         return df
     except:
         if show_progress:
-            spinner.fail("failed to load '{}'".format(filepath))
+            spinner.fail(f"failed to load '{filepath}'")
         raise

@@ -40,7 +40,7 @@ def pack_dataclass(
 
     if not dataclasses.is_dataclass(klass):
         raise TypeError(
-            "The provided class is not a dataclass: '{}'.".format(type(klass))
+            f"The provided class is not a dataclass: '{type(klass)}'."
         )
 
     if field_map is None:  # generate automatically
@@ -50,9 +50,7 @@ def pack_dataclass(
     for col in field_map:
         if not col in df.columns:
             raise ValueError(
-                "Field '{}' does not exist in the given dataframe with columns '{}'.".format(
-                    col, df.columns
-                )
+                f"Field '{col}' does not exist in the given dataframe with columns '{df.columns}'."
             )
 
     def func(row):
@@ -109,7 +107,7 @@ def unpack_dataclass(
         klass = type(df.iloc[0][input_col])
     if not dataclasses.is_dataclass(klass):
         raise TypeError(
-            "The provided class is not a dataclass: '{}'.".format(type(klass))
+            f"The provided class is not a dataclass: '{type(klass)}'."
         )
 
     if field_map is None:  # generate automatically

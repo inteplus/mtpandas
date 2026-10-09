@@ -55,7 +55,7 @@ def dfpack(df, spinner=None):
 
             if dftype == "ndarray":
                 if spinner is not None:
-                    spinner.text = "packing ndarray field '{}'".format(key)
+                    spinner.text = f"packing ndarray field '{key}'"
                 df2[key + "_df_nd_ravel"] = df[key].apply(
                     lambda x: None if x is None else x.ravel()
                 )
@@ -68,14 +68,14 @@ def dfpack(df, spinner=None):
 
             elif dftype == "Image":
                 if spinner is not None:
-                    spinner.text = "packing Image field '{}'".format(key)
+                    spinner.text = f"packing Image field '{key}'"
                 df2[key + "_df_imm"] = df[key].apply(
                     lambda x: None if x is None else json.dumps(x.to_json())
                 )
 
             else:
                 if spinner is not None:
-                    spinner.text = "passing field '{}'".format(key)
+                    spinner.text = f"passing field '{key}'"
                 df2[key] = df[key]
 
     if l_msgs:
@@ -118,14 +118,14 @@ def dfunpack(df, spinner=None):
         if key.endswith("_df_imm"):
             key2 = key[:-7]
             if spinner is not None:
-                spinner.text = "unpacking Image field '{}'".format(key2)
+                spinner.text = f"unpacking Image field '{key2}'"
             df2[key2] = df[key].apply(
                 lambda x: None if x is None else cv.Image.from_json(json.loads(x))
             )
         elif key.endswith("_df_nd_ravel"):
             key2 = key[:-12]
             if spinner is not None:
-                spinner.text = "unpacking ndarray field '{}'".format(key2)
+                spinner.text = f"unpacking ndarray field '{key2}'"
 
             def unpack_ndarray(row):
                 ravel = row[key2 + "_df_nd_ravel"]
@@ -150,7 +150,7 @@ def dfunpack(df, spinner=None):
             continue
         else:
             if spinner is not None:
-                spinner.text = "passing field '{}'".format(key)
+                spinner.text = f"passing field '{key}'"
             df2[key] = df[key]
 
     return df2
@@ -240,7 +240,7 @@ async def dfload_asyn(
 
     if filepath.endswith(".parquet"):
         if show_progress:
-            spinner = HaloAuto("dfloading '{}'".format(filepath), spinner="dots")
+            spinner = HaloAuto(f"dfloading '{filepath}'", spinner="dots")
             scope = spinner
         else:
             spinner = None
@@ -271,7 +271,7 @@ async def dfload_asyn(
                 if parquet_convert_ndarray_to_list:
                     for x in df.columns:
                         if show_progress:
-                            spinner.text = "converting column: {}".format(x)
+                            spinner.text = f"converting column: {x}"
                         if df.dtypes[x] == np.dtype("O"):  # object
                             # because Parquet would save lists into nested numpy arrays
                             # which is not we expect yet.
@@ -281,10 +281,10 @@ async def dfload_asyn(
                     df = dfunpack(df, spinner=spinner)
 
                 if show_progress:
-                    spinner.succeed("dfloaded '{}'".format(filepath))
+                    spinner.succeed(f"dfloaded '{filepath}'")
             except:
                 if show_progress:
-                    spinner.fail("failed to dfload '{}'".format(filepath))
+                    spinner.fail(f"failed to dfload '{filepath}'")
                 raise
 
         return df
@@ -304,7 +304,7 @@ async def dfload_asyn(
 
         return df
 
-    raise TypeError("Unknown file type: '{}'".format(df_filepath))
+    raise TypeError(f"Unknown file type: '{df_filepath}'")
 
 
 def dfload(
@@ -441,7 +441,7 @@ async def dfsave_asyn(
     """
 
     if not isinstance(df, pd.DataFrame):
-        raise TypeError("Input must be a pandas.DataFrame. Got '{}'.".format(type(df)))
+        raise TypeError(f"Input must be a pandas.DataFrame. Got '{type(df)}'.")
 
     filepath = df_filepath.lower()
 
@@ -453,7 +453,7 @@ async def dfsave_asyn(
 
     if filepath.endswith(".parquet"):
         if show_progress:
-            spinner = HaloAuto(text="dfsaving '{}'".format(filepath), spinner="dots")
+            spinner = HaloAuto(text=f"dfsaving '{filepath}'", spinner="dots")
             scope = spinner
         else:
             spinner = None
@@ -479,10 +479,10 @@ async def dfsave_asyn(
                 )
 
                 if show_progress:
-                    spinner.succeed("dfsaved '{}'".format(filepath))
+                    spinner.succeed(f"dfsaved '{filepath}'")
             except:
                 if show_progress:
-                    spinner.fail("failed to dfsave '{}'".format(filepath))
+                    spinner.fail(f"failed to dfsave '{filepath}'")
                 raise
         return res
 
@@ -499,7 +499,7 @@ async def dfsave_asyn(
         )
         return res
 
-    raise TypeError("Unknown file type: '{}'".format(df_filepath))
+    raise TypeError(f"Unknown file type: '{df_filepath}'")
 
 
 def dfsave(
