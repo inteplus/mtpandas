@@ -16,7 +16,7 @@ async def main(args, context_vars: dict = {}):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Converts a dataframe from one file format to another. Currently accepting '.csv', '.csv.zip', '.pdh5' and '.parquet'."
+        description="Converts a dataframe from one file format to another. Currently accepting '.csv', '.csv.zip' and '.parquet'."
     )
     parser.add_argument(
         "in_df_filepath", type=str, help="Filepath to the input dataframe."

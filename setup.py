@@ -23,7 +23,6 @@ setup(
     + [
         "pandas>=1.5",  # for dataframes, and we need custom dtypes
         "colorama",  # for mt.pandas.parallel_apply's logger (vendored from pandas_parallel_apply)
-        #'h5py>=3', # for pdh5 file format. Lazy import because TX2 may not need it.
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
         "mtbase>=4.33.34",  # just updating
         "mtopencv>=1.12.0",  # just updating

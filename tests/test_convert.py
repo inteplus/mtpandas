@@ -53,6 +53,17 @@ class TestRoundTrip(unittest.TestCase):
             finally:
                 os.chdir(old)
 
+    def test_pdh5_is_no_longer_supported(self):
+        import mt.pandas as mtpd
+
+        self.assertFalse(hasattr(mtpd, "Pdh5Cell"))
+        with tempfile.TemporaryDirectory() as d:
+            fp = os.path.join(d, "df.pdh5")
+            with self.assertRaises(TypeError):
+                dfsave(make_df(), fp)
+            with self.assertRaises(TypeError):
+                dfload(fp)
+
 
 if __name__ == "__main__":
     unittest.main()

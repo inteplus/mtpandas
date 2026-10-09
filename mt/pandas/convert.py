@@ -1,7 +1,7 @@
 """Loading and saving dataframes to files whose format is chosen by the file extension.
 
 The main functions are :func:`dfload` and :func:`dfsave` (and their asyn versions) which support
-'.csv', '.csv.zip', '.parquet' and '.pdh5' files. Columns that are not natively supported by the
+'.csv', '.csv.zip' and '.parquet' files. Columns that are not natively supported by the
 file formats (ndarray and Image columns) are converted by :func:`dfpack` before saving and
 restored by :func:`dfunpack` after loading.
 """
@@ -16,7 +16,6 @@ from mt.halo import HaloAuto
 
 from .csv import read_csv_asyn, to_csv_asyn
 from .dftype import get_dftype
-from .pdh5 import load_pdh5_asyn, save_pdh5, Pdh5Cell
 
 
 __all__ = [
@@ -26,7 +25,6 @@ __all__ = [
     "dfsave",
     "dfpack",
     "dfunpack",
-    "Pdh5Cell",
 ]
 
 
@@ -210,7 +208,6 @@ async def dfload_asyn(
     show_progress=False,
     unpack=True,
     parquet_convert_ndarray_to_list=False,
-    file_read_delayed: bool = False,
     max_rows: tp.Optional[int] = None,
     nrows: tp.Optional[int] = None,
     context_vars: dict = {},
@@ -218,7 +215,7 @@ async def dfload_asyn(
 ) -> pd.DataFrame:
     """An asyn function that loads a dataframe file based on the file's extension.
 
-    Supported extensions (case-insensitive) are '.csv', '.csv.zip', '.parquet' and '.pdh5'.
+    Supported extensions (case-insensitive) are '.csv', '.csv.zip' and '.parquet'.
 
     Parameters
     ----------
@@ -228,29 +225,22 @@ async def dfload_asyn(
         show a progress spinner in the terminal. Default is False.
     unpack : bool
         whether or not to unpack the dataframe after loading (see :func:`dfunpack`). Default is
-        True. Ignored for '.pdh5' format.
+        True.
     parquet_convert_ndarray_to_list : bool
         whether or not to convert 1D ndarrays in the loaded parquet table into Python lists.
-        Ignored for '.pdh5' format.
-    file_read_delayed : bool
-        whether or not some columns can be delayed for reading later. Only valid for '.pdh5'
-        format.
     max_rows : int, optional
-        limit the maximum number of rows to read. Only valid for '.csv', '.pdh5' and '.parquet'
+        limit the maximum number of rows to read. Only valid for '.csv' and '.parquet'
         formats. This argument is only for backward compatibility. Please use nrows instead.
     nrows : int, optional
-        limit the maximum number of rows to read. Only valid for '.csv', '.pdh5' and '.parquet'
+        limit the maximum number of rows to read. Only valid for '.csv' and '.parquet'
         formats.
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
-        Ignored for '.pdh5' format.
     *args : tuple
-        list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
-        format.
+        list of positional arguments to pass to the corresponding reader.
     **kwargs : dict
-        dictionary of keyword arguments to pass to the corresponding reader. Ignored for '.pdh5'
-        format.
+        dictionary of keyword arguments to pass to the corresponding reader.
 
     Returns
     -------
@@ -260,8 +250,7 @@ async def dfload_asyn(
     Notes
     -----
     For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we
-    use :func:`pandas.read_parquet`. For `.pdh5` files, we use
-    :func:`mt.pandas.pdh5.load_pdh5_asyn`.
+    use :func:`pandas.read_parquet`.
 
     When `nrows` is given for a '.parquet' file, only the first batch of `nrows` rows is read and
     the positional and keyword arguments for the reader are ignored.
@@ -299,16 +288,6 @@ async def dfload_asyn(
         nrows = max_rows
 
     filepath = df_filepath.lower()
-
-    if filepath.endswith(".pdh5"):
-        return await load_pdh5_asyn(
-            df_filepath,
-            show_progress=show_progress,
-            file_read_delayed=file_read_delayed,
-            max_rows=nrows,
-            context_vars=context_vars,
-            **kwargs
-        )
 
     if filepath.endswith(".parquet"):
         if show_progress:
@@ -385,14 +364,13 @@ def dfload(
     show_progress=False,
     unpack=True,
     parquet_convert_ndarray_to_list=False,
-    file_read_delayed: bool = False,
     max_rows: tp.Optional[int] = None,
     nrows: tp.Optional[int] = None,
     **kwargs
 ) -> pd.DataFrame:
     """Loads a dataframe file based on the file's extension.
 
-    Supported extensions (case-insensitive) are '.csv', '.csv.zip', '.parquet' and '.pdh5'. This is
+    Supported extensions (case-insensitive) are '.csv', '.csv.zip' and '.parquet'. This is
     the synchronous version of :func:`dfload_asyn`.
 
     Parameters
@@ -403,25 +381,19 @@ def dfload(
         show a progress spinner in the terminal. Default is False.
     unpack : bool
         whether or not to unpack the dataframe after loading (see :func:`dfunpack`). Default is
-        True. Ignored for '.pdh5' format.
+        True.
     parquet_convert_ndarray_to_list : bool
         whether or not to convert 1D ndarrays in the loaded parquet table into Python lists.
-        Ignored for '.pdh5' format.
-    file_read_delayed : bool
-        whether or not some columns can be delayed for reading later. Only valid for '.pdh5'
-        format.
     max_rows : int, optional
-        limit the maximum number of rows to read. Only valid for '.csv', '.pdh5' and '.parquet'
+        limit the maximum number of rows to read. Only valid for '.csv' and '.parquet'
         formats. This argument is only for backward compatibility. Please use nrows instead.
     nrows : int, optional
-        limit the maximum number of rows to read. Only valid for '.csv', '.pdh5' and '.parquet'
+        limit the maximum number of rows to read. Only valid for '.csv' and '.parquet'
         formats.
     *args : tuple
-        list of positional arguments to pass to the corresponding reader. Ignored for '.pdh5'
-        format.
+        list of positional arguments to pass to the corresponding reader.
     **kwargs : dict
-        dictionary of keyword arguments to pass to the corresponding reader. Ignored for '.pdh5'
-        format.
+        dictionary of keyword arguments to pass to the corresponding reader.
 
     Returns
     -------
@@ -431,8 +403,7 @@ def dfload(
     Notes
     -----
     For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.read_csv`. For '.parquet' files, we
-    use :func:`pandas.read_parquet`. For `.pdh5` files, we use
-    :func:`mt.pandas.pdh5.load_pdh5_asyn`.
+    use :func:`pandas.read_parquet`.
 
     When `nrows` is given for a '.parquet' file, only the first batch of `nrows` rows is read and
     the positional and keyword arguments for the reader are ignored. A '.csv' file saved by
@@ -475,7 +446,6 @@ def dfload(
         show_progress=show_progress,
         unpack=unpack,
         parquet_convert_ndarray_to_list=parquet_convert_ndarray_to_list,
-        file_read_delayed=file_read_delayed,
         max_rows=max_rows,
         nrows=nrows,
         **kwargs
@@ -501,7 +471,7 @@ async def dfsave_asyn(
         a dataframe
     df_filepath : str
         local path to the file to write. The file extension is used to determine the file type.
-        Supported extensions (case-insensitive) are '.csv', '.csv.zip', '.parquet' and '.pdh5'.
+        Supported extensions (case-insensitive) are '.csv', '.csv.zip' and '.parquet'.
     file_mode : int
         file mode to be set to using :func:`os.chmod`. If None is given, no setting of file mode
         will happen. Default is 0o664.
@@ -509,31 +479,27 @@ async def dfsave_asyn(
         show a progress spinner in the terminal. Default is False.
     pack : bool
         whether or not to pack the dataframe before saving (see :func:`dfpack`). Default is True.
-        Ignored for '.pdh5' format.
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
-        Ignored for '.pdh5' format.
     file_write_delayed : bool
         Only valid in asynchronous mode. If True, wraps the file write task into a future and
-        returns the future. In all other cases, proceeds as usual. Ignored for '.pdh5' format.
+        returns the future. In all other cases, proceeds as usual.
     make_dirs : bool
         Whether or not to make the folders containing the path before writing to the file.
     **kwargs : dict
-        dictionary of keyword arguments to pass to the corresponding writer. Ignored for '.pdh5'
-        format.
+        dictionary of keyword arguments to pass to the corresponding writer.
 
     Returns
     -------
     asyncio.Future or int
         either a future or the number of bytes written, depending on whether the file write
-        task is delayed or not. For '.pdh5' format, 1 is returned.
+        task is delayed or not.
 
     Notes
     -----
     For '.csv' or '.csv.zip' files, we use :func:`mt.pandas.csv.to_csv`. For '.parquet' files, we
-    use :func:`pandas.DataFrame.to_parquet`. For '.pdh5' files, we use
-    :func:`mt.pandas.pdh5.save_pdh5`.
+    use :func:`pandas.DataFrame.to_parquet`.
 
     When you want to save a large parquet file, you may want to pass `row_group_size` as a keyword
     argument for pyarrow or `row_group_offsets` as a keyword argument for fastparquet. This would
@@ -568,12 +534,6 @@ async def dfsave_asyn(
         raise TypeError(f"Input must be a pandas.DataFrame. Got '{type(df)}'.")
 
     filepath = df_filepath.lower()
-
-    if filepath.endswith(".pdh5"):
-        save_pdh5(
-            df_filepath, df, file_mode=file_mode, show_progress=show_progress, **kwargs
-        )
-        return 1
 
     if filepath.endswith(".parquet"):
         if show_progress:
@@ -637,7 +597,7 @@ def dfsave(
 ):
     """Saves a dataframe to a file based on the file's extension.
 
-    Supported extensions (case-insensitive) are '.csv', '.csv.zip', '.parquet' and '.pdh5'. This is
+    Supported extensions (case-insensitive) are '.csv', '.csv.zip' and '.parquet'. This is
     the synchronous version of :func:`dfsave_asyn`.
 
     Parameters
@@ -653,7 +613,6 @@ def dfsave(
         show a progress spinner in the terminal. Default is False.
     pack : bool
         whether or not to pack the dataframe before saving (see :func:`dfpack`). Default is True.
-        Ignored for '.pdh5' format.
     make_dirs : bool
         Whether or not to make the folders containing the path before writing to the file.
         Default is False.
@@ -663,8 +622,7 @@ def dfsave(
     Returns
     -------
     object
-        whatever the corresponding writer returns, typically the number of bytes written. For the
-        '.pdh5' format, 1 is returned.
+        whatever the corresponding writer returns, typically the number of bytes written.
 
     Notes
     -----
