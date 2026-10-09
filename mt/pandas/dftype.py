@@ -1,3 +1,5 @@
+"""Detection of the logical column type (dftype) of a pandas series."""
+
 import pandas as pd
 
 from mt import np, cv
@@ -7,6 +9,24 @@ __all__ = ['isnull', 'get_dftype']
 
 
 def isnull(obj):
+    """Checks whether a scalar is None, pandas.NaT or a float NaN.
+
+    Parameters
+    ----------
+    obj : object
+        a scalar to check
+
+    Returns
+    -------
+    bool
+        whether or not `obj` is null
+
+    Examples
+    --------
+    >>> from mt.pandas import isnull
+    >>> [isnull(x) for x in (None, float("nan"), 0, "")]
+    [True, True, False, False]
+    """
     if obj is None or obj is pd.NaT:
         return True
     if isinstance(obj, float) and np.isnan(obj):
@@ -17,8 +37,10 @@ def isnull(obj):
 def get_dftype(s):
     '''Detects the dftype of the series.
 
-    Determine whether a series is an ndarray series, a sparse ndarray series, an Image series or a
-    normal series.
+    Determine whether a series is a json series (lists or dicts), an ndarray series, a sparse
+    ndarray series, an Image series, a string series, a Timestamp series, a Timedelta series or a
+    normal series. Null items are ignored. The series is classified by looking at its items, and a
+    series of mixed kinds is classified as 'object' (or its dtype string).
 
     Parameters
     ----------
@@ -29,8 +51,28 @@ def get_dftype(s):
     -------
     {'json', 'ndarray', 'SparseNdarray', 'Image', 'str', 'Timestamp','Timedelta', 'object',
     'none', etc}
-        the type of the series. If it is a normal series, the string representing the dtype
-        attribute of the series is returned
+        the type of the series. An empty series is 'object', a series whose items are all null is
+        'none'. If it is a normal series, the string representing the dtype attribute of the
+        series is returned, e.g. 'int64'. A series of object dtype made of numbers only is
+        'float64'.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from mt.pandas import get_dftype
+    >>> get_dftype(pd.Series(["a", None]))
+    'str'
+    >>> get_dftype(pd.Series([[1], {"a": 2}]))
+    'json'
+    >>> get_dftype(pd.Series([np.zeros(2)]))
+    'ndarray'
+    >>> get_dftype(pd.Series([1, 2]))
+    'int64'
+    >>> get_dftype(pd.Series([None, None]))
+    'none'
+    >>> get_dftype(pd.Series([1, "a"]))
+    'object'
     '''
     if len(s) == 0:
         return 'object'

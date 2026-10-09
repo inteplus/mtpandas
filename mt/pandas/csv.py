@@ -1,3 +1,11 @@
+"""Reading and writing CSV and CSV-zipped files together with a '.meta' file keeping dtypes.
+
+:func:`to_csv` writes a dataframe to a '.csv' file (or a '.csv.zip' file) and also saves the
+column dtypes and the index names, as returned by :func:`metadata`, to a '.meta' file (a '.meta'
+member of the zip file). :func:`read_csv` reads such files back and restores the dtypes. Their
+asyn versions are :func:`to_csv_asyn` and :func:`read_csv_asyn`.
+"""
+
 import io
 import json
 import pandas as pd
@@ -22,14 +30,31 @@ __all__ = [
 def metadata(df):
     """Extracts the metadata of a dataframe.
 
+    The metadata records the dtype name of every column (index levels included, as columns) and
+    the names of the index levels, so that a dataframe can be restored from a CSV file.
+
     Parameters
     ----------
-        df : pandas.DataFrame
+    df : pandas.DataFrame
+        the dataframe to describe
 
     Returns
     -------
-        meta : json-like
-            metadata describing the dataframe
+    meta : json-like
+        a dictionary with 2 keys. 'columns' maps each column name (including the index level
+        names) into its dtype name, or into ``["category", categories, ordered]`` for categorical
+        columns. 'index_names' is the list of index level names, empty if the index is unnamed.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from mt.pandas.csv import metadata
+    >>> df = pd.DataFrame({"a": [1, 2], "b": ["x", "y"]})
+    >>> metadata(df)
+    {'columns': {'a': 'int64', 'b': 'object'}, 'index_names': []}
+    >>> df.index.name = "id"
+    >>> metadata(df)
+    {'columns': {'id': 'int64', 'a': 'int64', 'b': 'object'}, 'index_names': ['id']}
     """
     meta = {}
     if list(df.index.names) != [None]:  # has index
@@ -51,7 +76,30 @@ def metadata(df):
 
 
 def metadata2dtypes(meta):
-    """Creates a dictionary of dtypes from the metadata returned by metadata() function."""
+    """Creates a dictionary of dtypes from the metadata returned by metadata() function.
+
+    Datetime and categorical columns are mapped to the object dtype, as they need extra
+    conversion after reading.
+
+    Parameters
+    ----------
+    meta : json-like
+        the metadata returned by :func:`metadata`
+
+    Returns
+    -------
+    dict
+        a dictionary mapping each column name into a :class:`numpy.dtype`, suitable for the
+        `dtype` argument of :func:`pandas.read_csv`
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from mt.pandas.csv import metadata, metadata2dtypes
+    >>> df = pd.DataFrame({"a": [1, 2], "b": ["x", "y"]})
+    >>> metadata2dtypes(metadata(df))
+    {'a': dtype('int64'), 'b': dtype('O')}
+    """
     res = {}
     s = meta["columns"]
     for x in s:

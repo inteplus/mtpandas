@@ -2,9 +2,12 @@
 Python logger settings.
 Uses Env variables to control the log level:
 
-YOUR_KEY_LOGLEVEL=4 python blabla.py
+PANDAS_PARALLEL_APPLY_LOGLEVEL=4 python blabla.py
 and logger.debug4("message")
 
+The variable is read once at import time. Values: -1 (default, no logging), 0 (INFO), 1 (DEBUG),
+2, 3 and 4 (increasingly verbose custom debug levels DEBUG2, DEBUG3, DEBUG4). Any other value
+makes the import exit the interpreter with an error message.
 """
 # pylint: disable=protected-access
 
@@ -63,6 +66,7 @@ class CustomFormatter(logging.Formatter):
     }
 
     def format(self, record):
+        """Formats a log record with the colour template of its level."""
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         formatter.formatTime = self.formatTime
@@ -70,6 +74,7 @@ class CustomFormatter(logging.Formatter):
 
     # here we define the time format.
     def formatTime(self, record, datefmt=None):
+        """Formats the record time as ``YYYYmmdd HH:MM:SS``, ignoring `datefmt`."""
         return super().formatTime(record, "%Y%m%d %H:%M:%S")
 
 

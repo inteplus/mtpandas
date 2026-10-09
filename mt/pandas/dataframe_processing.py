@@ -1,4 +1,11 @@
-"""Batch processing a dataframe."""
+"""Batch processing a dataframe.
+
+The functions here turn the rows of a dataframe into tensors (preprocessing), feed batches of
+tensors to a model (batch processing) and turn the output tensors back into rows (postprocessing),
+using asyncio. See :func:`process_dataframe` and :func:`process_dataframe_in_batches`, and the
+reference implementations :func:`default_preprocess`, :func:`default_batchprocess` and
+:func:`default_postprocess` that document the API the user functions must follow.
+"""
 
 import asyncio
 import pandas as pd
@@ -27,6 +34,9 @@ async def default_preprocess(
 ):
     """Preprocesses a row in the dataframe.
 
+    This function only documents the API of a preprocessing function: the user must provide their
+    own asyn function with the same signature.
+
     The returning value should be the result of preprocessing the row or, in case some caching
     is used, even the result of postprocessing the row, bypassing the batch-processing step.
 
@@ -42,7 +52,8 @@ async def default_preprocess(
     rng_seed : int
         a number that can be used to seed an RNG for preprocessing `s`
     args : tuple
-        additional positional arguments
+        additional positional arguments, from the `preprocess_args` argument of
+        :func:`process_dataframe` or :func:`process_dataframe_in_batches`
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
@@ -61,6 +72,11 @@ async def default_preprocess(
         If it is a dict, each key is a tensor name and its value is a numpy array representing the
         tensor value. If it is a pandas.Series, it is the output series corresponding to the input
         series `s`.
+
+    Raises
+    ------
+    NotImplementedError
+        always, in this default implementation
     """
     raise NotImplementedError("This function serves only to show the API.")
 
@@ -75,7 +91,7 @@ async def default_batchprocess(
     the batch-processing step.
 
     The user should override the function to customise the behaviour. The default is to bypass
-    whatever input data to output data.
+    whatever input data to output data, i.e. to return `batch_tensor_dict` unchanged.
 
     Parameters
     ----------
@@ -105,6 +121,13 @@ async def default_batchprocess(
         number of items as that of `batch_tensor_dict`. If a list is returned, it is a list of
         :class:`pandas.Series` instances representing the output :class:`pandas.Series` of each
         input item/row, after even the postprocessing step.
+
+    Examples
+    --------
+    >>> import asyncio
+    >>> from mt.pandas.dataframe_processing import default_batchprocess
+    >>> asyncio.run(default_batchprocess({"x": [1, 2]}, context_vars={"async": True}))
+    {'x': [1, 2]}
     """
     return batch_tensor_dict
 
@@ -139,6 +162,15 @@ async def default_postprocess(
     -------
     pandas.Series
         A series of a fixed number of fields representing the output fields of the item.
+
+    Examples
+    --------
+    >>> import asyncio
+    >>> from mt.pandas.dataframe_processing import default_postprocess
+    >>> asyncio.run(default_postprocess({"a": 1, "b": 2}, context_vars={"async": True}))
+    a    1
+    b    2
+    dtype: int64
     """
     return pd.Series(data=tensor_dict)
 
@@ -152,12 +184,15 @@ def sample_rows(
 ):
     """Sample the rows of a dataframe, returning `(row_id, rng_seed)` pairs.
 
+    The returned per-row seeds are derived deterministically from `rng_seed` and the row id, so the
+    same call always returns the same pairs.
+
     Parameters
     ----------
     df : pandas.DataFrame
         an input unindexed dataframe
     rng_seed : int, optional
-        seed for making RNGs
+        seed for making RNGs. It is hashed before use. Default is 0.
     num_iters : int, optional
         number of iterations or equivalently number of rows selected during the call. If not
         provided, it is set to the number of rows of `df`.
@@ -174,7 +209,21 @@ def sample_rows(
     Returns
     -------
     list
-        list of `(row_id, rng_seed)` pairs sampled from the dataframe
+        list of `(row_id, rng_seed)` pairs sampled from the dataframe. `row_id` is the positional
+        index of the row.
+
+    Raises
+    ------
+    ValueError
+        if the iteration policy is unknown
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from mt.pandas.dataframe_processing import sample_rows
+    >>> df = pd.DataFrame({"x": [10, 20, 30]})
+    >>> sample_rows(df, num_iters=4)
+    [(0, 0), (1, 506952113), (2, 1013904226), (0, 0)]
     """
 
     rng_seed = hash_int(rng_seed)  # to make it tougher to err
@@ -198,6 +247,9 @@ def sample_rows(
 
 class MyWorkerBee(beehive.WorkerBee):
     """The worker bee class implementation for :func:`process_dataframe`.
+
+    A worker bee runs the user's preprocessing and postprocessing functions for the rows delegated
+    to it by the queen bee (:class:`MyQueenBee`).
 
     For internal use only.
     """
@@ -233,6 +285,7 @@ class MyWorkerBee(beehive.WorkerBee):
         context_vars: dict = {},
         **kwargs,
     ):
+        """Delegates to the user's preprocessing function. See :func:`default_preprocess`."""
         return await self.preprocess_func(
             s, iter_id, rng_seed, *args, context_vars=context_vars, **kwargs
         )
@@ -240,13 +293,18 @@ class MyWorkerBee(beehive.WorkerBee):
     async def postprocess(
         self, tensor_dict: dict, *args, context_vars: dict = {}, **kwargs
     ):
+        """Delegates to the user's postprocessing function. See :func:`default_postprocess`."""
         return await self.postprocess_func(
             tensor_dict, *args, context_vars=context_vars, **kwargs
         )
 
 
 class MyQueenBee(beehive.QueenBee):
-    """The worker bee class implementation for :func:`process_dataframe`.
+    """The queen bee class implementation for :func:`process_dataframe`.
+
+    The queen bee delegates preprocessing and postprocessing of each row to worker bees, forms
+    batches from the preprocessed rows, runs the user's batchprocessing function on them, and
+    assembles the output dataframe.
 
     For internal use only.
     """
@@ -303,6 +361,21 @@ class MyQueenBee(beehive.QueenBee):
         self.batch_size = batch_size
 
     async def main(self, pair_list: list, context_vars: dict = {}):
+        """The main task of the queen bee.
+
+        Parameters
+        ----------
+        pair_list : list
+            list of `(row_id, rng_seed)` pairs, as returned by :func:`sample_rows`
+        context_vars : dict
+            a dictionary of context variables within which the function runs
+
+        Returns
+        -------
+        pandas.DataFrame
+            the output dataframe, with one row per pair in the order of `pair_list`. Pairs skipped
+            by a None result (see `skip_null`) have no row.
+        """
         import asyncio
 
         # tracking variables
@@ -580,7 +653,7 @@ async def process_dataframe(
     context_vars: dict = {},
     logger=None,
 ):
-    """An asyn function that does batch processing a dataframe.
+    """An asyn function that does batch processing a dataframe, using multiple processes.
 
     The functionality provided here addresses the following situation. The user has a dataframe in
     which each row represents an event or an image. There is a need to take some fields of each row
@@ -602,6 +675,10 @@ async def process_dataframe(
     sure the APIs of their functions match with those of the default ones. Note that it is possible
     that during preprocessing or batchprocessing a row the function can skip batch-processing and
     postprocessing altogether and returns an output series corresponding to each input row.
+
+    Preprocessing and postprocessing run in worker processes, so `preprocess_func` and
+    `postprocess_func` must be picklable (module-level functions). Use
+    :func:`process_dataframe_in_batches` for a single-process alternative.
 
     Internally, we use the BeeHive concurrency model to address the problem. The queen bee is
     responsible for forming batches, batch processing, and forming the output dataframe, the
@@ -669,7 +746,18 @@ async def process_dataframe(
     Returns
     -------
     df : pandas.DataFrame
-        an output unindexed dataframe
+        an output unindexed dataframe, with one row per iteration in the order of the iterations.
+        An empty dataframe is returned for an empty input dataframe.
+
+    Raises
+    ------
+    ValueError
+        if `context_vars['async']` is not True, or the iteration policy is unknown
+
+    See Also
+    --------
+    process_dataframe_in_batches
+        a single-process alternative
 
     Notes
     -----
@@ -740,7 +828,7 @@ async def process_dataframe_in_batches(
     context_vars: dict = {},
     logger: tp.Optional[logg.IndentedLoggerAdapter] = None,
 ):
-    """An asyn function that does batch processing a dataframe.
+    """An asyn function that does batch processing a dataframe, in a single process.
 
     The functionality provided here addresses the following situation. The user has a dataframe in
     which each row represents an event or an image. There is a need to take some fields of each row
@@ -762,6 +850,9 @@ async def process_dataframe_in_batches(
     sure the APIs of their functions match with those of the default ones. Note that it is possible
     that during preprocessing or batchprocessing a row the function can skip batch-processing and
     postprocessing altogether and returns an output series corresponding to each input row.
+
+    Every row of the dataframe is processed exactly once, in order of the rows, and the row at
+    position `i` is preprocessed with ``rng_seed + i`` as its RNG seed.
 
     Internally, we use asyncio but no multiprocessing to address the problem. We maintain: 3 queues
     Q1, Q2 and Q3; and 4 lists P1, P2, P3 and P4. Q1 represents the items pending to be
@@ -804,8 +895,9 @@ async def process_dataframe_in_batches(
     batch_size : int
         maximum batch size for each batch that is formed internally
     max_concurrent_preprocessing_items : int
-        the maximum number items in the Q2 queue for batchproccessing. This is to avoid too many
-        items waiting for batchprocessing and thus overloading the system.
+        the maximum number of items being preprocessed at the same time (the size of P1 in the
+        description above). This is to avoid too many preprocessing tasks running at once and thus
+        overloading the system.
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
@@ -819,12 +911,49 @@ async def process_dataframe_in_batches(
     Returns
     -------
     df : pandas.DataFrame
-        an output unindexed dataframe
+        an output unindexed dataframe, with one row per processed input row in the order of the
+        input rows. Rows skipped by a None result (see `skip_null`) have no output row. An empty
+        dataframe is returned for an empty input dataframe.
+
+    Raises
+    ------
+    ValueError
+        if `context_vars['async']` is not True
+    mt.base.LogicError
+        if a preprocessing, batchprocessing or postprocessing task is cancelled or raises
+    RuntimeError
+        if a function returns an unexpected type
+
+    See Also
+    --------
+    process_dataframe
+        a multi-process alternative
 
     Notes
     -----
     The function only works in asynchronous mode. That means `context_vars['async'] is True` is
     required.
+
+    Examples
+    --------
+    >>> import asyncio
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from mt.pandas.dataframe_processing import process_dataframe_in_batches
+    >>> async def preprocess(row, iter_id, rng_seed, context_vars={}):
+    ...     return {"x": np.array([row["x"]])}
+    >>> async def batchprocess(batch, context_vars={}):
+    ...     return {"y": [2 * v for v in batch["x"]]}
+    >>> async def postprocess(tensors, context_vars={}):
+    ...     return pd.Series({"y": int(tensors["y"][0])})
+    >>> df = pd.DataFrame({"x": [1, 2, 3]})
+    >>> asyncio.run(process_dataframe_in_batches(
+    ...     df, preprocess, batchprocess, postprocess, batch_size=2,
+    ...     context_vars={"async": True}))
+       y
+    0  2
+    1  4
+    2  6
     """
 
     if len(df) == 0:

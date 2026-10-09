@@ -1,3 +1,11 @@
+"""Loading and saving dataframes to files whose format is chosen by the file extension.
+
+The main functions are :func:`dfload` and :func:`dfsave` (and their asyn versions) which support
+'.csv', '.csv.zip', '.parquet' and '.pdh5' files. Columns that are not natively supported by the
+file formats (ndarray and Image columns) are converted by :func:`dfpack` before saving and
+restored by :func:`dfunpack` after loading.
+"""
+
 import warnings
 import io
 import json
@@ -23,7 +31,11 @@ __all__ = [
 
 
 def array2list(x):
-    """Converts a nested numpy.ndarray object into a nested list object."""
+    """Converts a nested numpy.ndarray object into a nested list object.
+
+    Only 1D ndarrays (of ndarrays) are converted recursively. Any other object is returned as is.
+    It is meant to fix nested arrays that parquet produces when reading list columns.
+    """
     return (
         [array2list(y) for y in x] if isinstance(x, np.ndarray) and x.ndim == 1 else x
     )
@@ -32,8 +44,10 @@ def array2list(x):
 def dfpack(df, spinner=None):
     """Packs a dataframe into a more compact format.
 
-    At the moment, it converts each ndarray column into 3 columns, and each cv.Image column into a
-    json column.
+    At the moment, it converts each ndarray column `key` into 3 columns `key_df_nd_ravel` (the
+    flattened array), `key_df_nd_shape` and `key_df_nd_dtype`, and each cv.Image column `key` into
+    a json-string column `key_df_imm`. Other columns are passed through. Column types are detected
+    using :func:`mt.pandas.dftype.get_dftype`.
 
     Parameters
     ----------
@@ -46,6 +60,20 @@ def dfpack(df, spinner=None):
     -------
     pandas.DataFrame
         output dataframe
+
+    See Also
+    --------
+    dfunpack
+        the reverse function
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from mt.pandas import dfpack
+    >>> df = pd.DataFrame({"a": [1, 2], "v": [np.zeros((2, 2)), np.ones((1, 2))]})
+    >>> dfpack(df).columns.tolist()
+    ['a', 'v_df_nd_ravel', 'v_df_nd_shape', 'v_df_nd_dtype']
     """
 
     with warnings.catch_warnings(record=True) as l_msgs:
@@ -97,7 +125,10 @@ def dfpack(df, spinner=None):
 def dfunpack(df, spinner=None):
     """Unpacks a compact dataframe into a more expanded format.
 
-    This is the reverse function of :func:`dfpack`.
+    This is the reverse function of :func:`dfpack`. Columns ending with ``_df_nd_ravel``,
+    ``_df_nd_shape`` and ``_df_nd_dtype`` are merged back into an ndarray column, columns ending
+    with ``_df_imm`` are converted back into cv.Image columns, and other columns are passed
+    through. Null items stay None.
 
     Parameters
     ----------
@@ -110,6 +141,23 @@ def dfunpack(df, spinner=None):
     -------
     pandas.DataFrame
         output dataframe
+
+    See Also
+    --------
+    dfpack
+        the reverse function
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from mt.pandas import dfpack, dfunpack
+    >>> df = pd.DataFrame({"a": [1, 2], "v": [np.zeros((2, 2)), np.ones((1, 2))]})
+    >>> df2 = dfunpack(dfpack(df))
+    >>> df2.columns.tolist()
+    ['a', 'v']
+    >>> [x.shape for x in df2["v"]]
+    [(2, 2), (1, 2)]
     """
 
     key2 = ""  # just to trick pylint
@@ -170,14 +218,17 @@ async def dfload_asyn(
 ) -> pd.DataFrame:
     """An asyn function that loads a dataframe file based on the file's extension.
 
+    Supported extensions (case-insensitive) are '.csv', '.csv.zip', '.parquet' and '.pdh5'.
+
     Parameters
     ----------
     df_filepath : str
         local path to an existing dataframe. The file extension is used to determine the file type.
     show_progress : bool
-        show a progress spinner in the terminal
+        show a progress spinner in the terminal. Default is False.
     unpack : bool
-        whether or not to unpack the dataframe after loading. Ignored for '.pdh5' format.
+        whether or not to unpack the dataframe after loading (see :func:`dfunpack`). Default is
+        True. Ignored for '.pdh5' format.
     parquet_convert_ndarray_to_list : bool
         whether or not to convert 1D ndarrays in the loaded parquet table into Python lists.
         Ignored for '.pdh5' format.
@@ -212,10 +263,31 @@ async def dfload_asyn(
     use :func:`pandas.read_parquet`. For `.pdh5` files, we use
     :func:`mt.pandas.pdh5.load_pdh5_asyn`.
 
+    When `nrows` is given for a '.parquet' file, only the first batch of `nrows` rows is read and
+    the positional and keyword arguments for the reader are ignored.
+
     Raises
     ------
     TypeError
         if file type is unknown
+
+    Examples
+    --------
+    >>> import asyncio
+    >>> import os
+    >>> import tempfile
+    >>> import pandas as pd
+    >>> from mt.pandas import dfsave, dfload_asyn
+    >>> df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    >>> with tempfile.TemporaryDirectory() as d:
+    ...     filepath = os.path.join(d, "df.parquet")
+    ...     _ = dfsave(df, filepath)
+    ...     df2 = asyncio.run(dfload_asyn(filepath, context_vars={"async": True}))
+    >>> df2
+       a  b
+    0  1  x
+    1  2  y
+    2  3  z
     """
 
     if max_rows is not None:
@@ -320,14 +392,18 @@ def dfload(
 ) -> pd.DataFrame:
     """Loads a dataframe file based on the file's extension.
 
+    Supported extensions (case-insensitive) are '.csv', '.csv.zip', '.parquet' and '.pdh5'. This is
+    the synchronous version of :func:`dfload_asyn`.
+
     Parameters
     ----------
     df_filepath : str
         local path to an existing dataframe. The file extension is used to determine the file type.
     show_progress : bool
-        show a progress spinner in the terminal
+        show a progress spinner in the terminal. Default is False.
     unpack : bool
-        whether or not to unpack the dataframe after loading. Ignored for '.pdh5' format.
+        whether or not to unpack the dataframe after loading (see :func:`dfunpack`). Default is
+        True. Ignored for '.pdh5' format.
     parquet_convert_ndarray_to_list : bool
         whether or not to convert 1D ndarrays in the loaded parquet table into Python lists.
         Ignored for '.pdh5' format.
@@ -358,10 +434,40 @@ def dfload(
     use :func:`pandas.read_parquet`. For `.pdh5` files, we use
     :func:`mt.pandas.pdh5.load_pdh5_asyn`.
 
+    When `nrows` is given for a '.parquet' file, only the first batch of `nrows` rows is read and
+    the positional and keyword arguments for the reader are ignored. A '.csv' file saved by
+    :func:`dfsave` has its column dtypes restored from the '.meta' file next to it, but the
+    '.meta' file is looked up by its base name only, relative to the current working directory.
+
     Raises
     ------
     TypeError
         if file type is unknown
+
+    See Also
+    --------
+    dfsave
+        the reverse function
+
+    Examples
+    --------
+    >>> import os
+    >>> import tempfile
+    >>> import pandas as pd
+    >>> from mt.pandas import dfsave, dfload
+    >>> df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    >>> with tempfile.TemporaryDirectory() as d:
+    ...     filepath = os.path.join(d, "df.parquet")
+    ...     _ = dfsave(df, filepath)
+    ...     df2 = dfload(filepath)
+    ...     df3 = dfload(filepath, nrows=2)
+    >>> df2
+       a  b
+    0  1  x
+    1  2  y
+    2  3  z
+    >>> len(df3)
+    2
     """
     return aio.srun(
         dfload_asyn,
@@ -395,14 +501,16 @@ async def dfsave_asyn(
     df : pandas.DataFrame
         a dataframe
     df_filepath : str
-        local path to an existing dataframe. The file extension is used to determine the file type.
+        local path to the file to write. The file extension is used to determine the file type.
+        Supported extensions (case-insensitive) are '.csv', '.csv.zip', '.parquet' and '.pdh5'.
     file_mode : int
         file mode to be set to using :func:`os.chmod`. If None is given, no setting of file mode
-        will happen.
+        will happen. Default is 0o664.
     show_progress : bool
-        show a progress spinner in the terminal
+        show a progress spinner in the terminal. Default is False.
     pack : bool
-        whether or not to pack the dataframe before saving. Ignored for '.pdh5' format.
+        whether or not to pack the dataframe before saving (see :func:`dfpack`). Default is True.
+        Ignored for '.pdh5' format.
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
         `context_vars['async']` to tell whether to invoke the function asynchronously or not.
@@ -438,6 +546,23 @@ async def dfsave_asyn(
     ------
     TypeError
         if file type is unknown or if the input is not a dataframe
+
+    Examples
+    --------
+    >>> import asyncio
+    >>> import os
+    >>> import tempfile
+    >>> import pandas as pd
+    >>> from mt.pandas import dfsave_asyn, dfload
+    >>> df = pd.DataFrame({"a": [1, 2, 3]})
+    >>> with tempfile.TemporaryDirectory() as d:
+    ...     filepath = os.path.join(d, "df.parquet")
+    ...     n_bytes = asyncio.run(dfsave_asyn(df, filepath, context_vars={"async": True}))
+    ...     df2 = dfload(filepath)
+    >>> n_bytes > 0
+    True
+    >>> df2["a"].tolist()
+    [1, 2, 3]
     """
 
     if not isinstance(df, pd.DataFrame):
@@ -513,28 +638,34 @@ def dfsave(
 ):
     """Saves a dataframe to a file based on the file's extension.
 
+    Supported extensions (case-insensitive) are '.csv', '.csv.zip', '.parquet' and '.pdh5'. This is
+    the synchronous version of :func:`dfsave_asyn`.
+
     Parameters
     ----------
     df : pandas.DataFrame
         a dataframe
     df_filepath : str
-        local path to an existing dataframe. The file extension is used to determine the file type.
+        local path to the file to write. The file extension is used to determine the file type.
     file_mode : int
         file mode to be set to using :func:`os.chmod`. If None is given, no setting of file mode
-        will happen.
+        will happen. Default is 0o664.
     show_progress : bool
-        show a progress spinner in the terminal
+        show a progress spinner in the terminal. Default is False.
     pack : bool
-        whether or not to pack the dataframe before saving
+        whether or not to pack the dataframe before saving (see :func:`dfpack`). Default is True.
+        Ignored for '.pdh5' format.
     make_dirs : bool
         Whether or not to make the folders containing the path before writing to the file.
+        Default is False.
     **kwargs : dict
         dictionary of keyword arguments to pass to the corresponding writer
 
     Returns
     -------
     object
-        whatever the corresponding writer returns
+        whatever the corresponding writer returns, typically the number of bytes written. For the
+        '.pdh5' format, 1 is returned.
 
     Notes
     -----
@@ -551,6 +682,25 @@ def dfsave(
     ------
     TypeError
         if file type is unknown or if the input is not a dataframe
+
+    See Also
+    --------
+    dfload
+        the reverse function
+
+    Examples
+    --------
+    >>> import os
+    >>> import tempfile
+    >>> import pandas as pd
+    >>> from mt.pandas import dfsave, dfload
+    >>> df = pd.DataFrame({"a": [1, 2, 3]})
+    >>> with tempfile.TemporaryDirectory() as d:
+    ...     filepath = os.path.join(d, "df.parquet")
+    ...     _ = dfsave(df, filepath)
+    ...     df2 = dfload(filepath)
+    >>> df2["a"].tolist()
+    [1, 2, 3]
     """
     return aio.srun(
         dfsave_asyn,

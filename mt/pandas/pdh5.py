@@ -1,4 +1,15 @@
-"""Loading and saving to column-based pdh5 format."""
+"""Loading and saving to column-based pdh5 format.
+
+A pdh5 file is an HDF5 file (written with the optional dependency `h5py`) that stores a dataframe
+column by column. Each column is stored according to its dftype (see
+:func:`mt.pandas.dftype.get_dftype`): numeric and bool columns as plain datasets, strings, json,
+Timestamp and Timedelta columns as text datasets, and ndarray, SparseNdarray and Image columns as
+one dataset or group per non-null cell. The index and the dftype of each column are recorded as
+attributes. Columns of any other dftype (e.g. 'object') cannot be saved.
+
+Use :func:`save_pdh5` and :func:`load_pdh5_asyn` directly, or :func:`mt.pandas.dfsave` and
+:func:`mt.pandas.dfload` with a '.pdh5' file extension.
+"""
 
 import warnings
 import os
@@ -16,6 +27,27 @@ __all__ = ["save_pdh5", "load_pdh5_asyn", "Pdh5Cell"]
 
 
 def load_special_cell(grp, key, dftype):
+    """Loads one non-null cell of an 'ndarray', 'SparseNdarray' or 'Image' column.
+
+    Parameters
+    ----------
+    grp : h5py.Group
+        the group holding the column
+    key : str
+        the row id, as a string, that names the cell in the group
+    dftype : {'ndarray', 'SparseNdarray', 'Image'}
+        the dftype of the column
+
+    Returns
+    -------
+    numpy.ndarray or mt.np.SparseNdarray or mt.cv.Image
+        the cell value
+
+    Raises
+    ------
+    ValueError
+        if the dftype is unknown
+    """
     if dftype == "ndarray":
         return grp[key][:]
     if dftype == "SparseNdarray":
@@ -34,7 +66,15 @@ def load_special_cell(grp, key, dftype):
 
 
 class Pdh5Column:
-    """A read-only column of a pdh5 file."""
+    """A read-only column of a pdh5 file, whose cells are read lazily on demand.
+
+    Parameters
+    ----------
+    filepath : str
+        path to the pdh5 file
+    col_id : str
+        name of the column in the dataframe
+    """
 
     def __init__(self, filepath: str, col_id: str):
         self.filepath = filepath
@@ -44,6 +84,13 @@ class Pdh5Column:
         self.loaded = False
 
     def get_item(self, row_id: int):
+        """Reads the cell at row `row_id`, opening the file on first use.
+
+        Returns None for a null cell, otherwise the cell value (a json object, a numpy.ndarray,
+        a SparseNdarray or an Image depending on the dftype of the column). Only columns of dftype
+        'none', 'json', 'ndarray', 'Image' and 'SparseNdarray' are supported, otherwise None is
+        returned.
+        """
         if not self.loaded:
             import h5py
 
@@ -68,7 +115,18 @@ class Pdh5Column:
 
 
 class Pdh5Cell:
-    """A read-only cell of a pdh5 column."""
+    """A read-only cell of a pdh5 column, read lazily.
+
+    Instances are produced in place of values when a pdh5 file is loaded with
+    ``file_read_delayed=True``. Access the actual content with the :attr:`value` property.
+
+    Parameters
+    ----------
+    col : Pdh5Column
+        the column containing the cell
+    row_id : int
+        the position of the row
+    """
 
     def __init__(self, col: Pdh5Column, row_id: int):
         self.col = col
@@ -78,6 +136,7 @@ class Pdh5Cell:
 
     @property
     def value(self):
+        """The content of the cell. It is read from the file on first access and then cached."""
         if not self.loaded:
             self._value = self.col.get_item(self.row_id)
             self.loaded = True
@@ -85,6 +144,13 @@ class Pdh5Cell:
 
 
 def save_pdh5_index(f, df: pd.DataFrame, spinner=None):
+    """Writes the format attributes and the index of a dataframe to an open h5py file.
+
+    Raises
+    ------
+    ValueError
+        if the index type is unsupported
+    """
     f.attrs["format"] = "pdh5"
     f.attrs["version"] = "1.0"
     size = len(df)
@@ -122,6 +188,13 @@ def save_pdh5_index(f, df: pd.DataFrame, spinner=None):
 
 
 def save_pdh5_columns(f, df: pd.DataFrame, spinner=None):
+    """Writes every column of a dataframe to an open h5py file, according to its dftype.
+
+    Raises
+    ------
+    ValueError
+        if a column has an unsupported dftype (e.g. 'object')
+    """
     columns = {x: get_dftype(df[x]) for x in df.columns}
     f.attrs["columns"] = json.dumps(columns)
 
@@ -214,16 +287,33 @@ def save_pdh5(
 ):
     """Saves a dataframe into a .pdh5 file.
 
+    The data is first written to ``filepath + ".mttmp"`` and then renamed to `filepath`, replacing
+    any existing file. The optional dependency `h5py` is required.
+
     Parameters
     ----------
     filepath : str
         path to the file to be written to
     df : pandas.DataFrame
-        the dataframe to write from
+        the dataframe to write from. Every column must have a supported dftype, see
+        :mod:`mt.pandas.pdh5`.
     file_mode : int, optional
-        file mode of the newly written file
+        file mode of the newly written file, set using :func:`os.chmod`. If None, no setting of
+        file mode happens. Default is 0o664.
     show_progress : bool
-        show a progress spinner in the terminal
+        show a progress spinner in the terminal. Default is False.
+    **kwargs : dict
+        ignored
+
+    Raises
+    ------
+    ValueError
+        if the index type or a column dtype is unsupported
+
+    See Also
+    --------
+    load_pdh5_asyn
+        the reverse function
     """
     if show_progress:
         spinner = HaloAuto(f"dfsaving '{filepath}'", spinner="dots")
@@ -250,6 +340,13 @@ def save_pdh5(
 
 
 def load_pdh5_index(f, spinner=None, max_rows: tp.Optional[int] = None) -> pd.DataFrame:
+    """Reads the index of an open h5py pdh5 file into an empty dataframe, up to `max_rows` rows.
+
+    Raises
+    ------
+    ValueError
+        if the file is not a pdh5 file or the index type is unsupported
+    """
     if f.attrs["format"] != "pdh5":
         raise ValueError("Input file does not have 'pdh5' format.")
     size = f.attrs["size"]
@@ -296,6 +393,14 @@ def load_pdh5_columns(
     file_read_delayed: bool = False,
     max_rows: tp.Optional[int] = None,
 ):
+    """Reads the columns of an open h5py pdh5 file into the dataframe `df` (from
+    :func:`load_pdh5_index`), in place.
+
+    Raises
+    ------
+    ValueError
+        if a column has an unsupported dftype
+    """
     columns = json.loads(f.attrs["columns"])
     size = len(df.index)
     if max_rows is not None:
@@ -380,12 +485,14 @@ async def load_pdh5_asyn(
 ) -> pd.DataFrame:
     """Loads the dataframe of a .pdh5 file.
 
+    The optional dependency `h5py` is required.
+
     Parameters
     ----------
     filepath : str
         path to the file to be read from
     show_progress : bool
-        show a progress spinner in the terminal
+        show a progress spinner in the terminal. Default is False.
     file_read_delayed: bool
         If True, columns of dftype 'json', 'ndarray', 'Image' and 'SparseNdarray' are proxied for
         reading later, returning cells are instances of :class:`Pdh5Cell` instead. If False, these
@@ -394,13 +501,25 @@ async def load_pdh5_asyn(
         limit the maximum number of rows to be read from the file
     context_vars : dict
         a dictionary of context variables within which the function runs. It must include
-        `context_vars['async']` to tell whether to invoke the function asynchronously or not.
-        Ignored for '.pdh5' format.
+        `context_vars['async']` to tell whether to invoke the function asynchronously or not. It
+        is used to read the file content when `file_read_delayed` is False.
+    **kwargs : dict
+        ignored
 
     Returns
     -------
     df : pandas.DataFrame
-        the loaded dataframe
+        the loaded dataframe, with the index and the columns as saved by :func:`save_pdh5`
+
+    Raises
+    ------
+    ValueError
+        if the file is not a pdh5 file, or its index type or a column dftype is unsupported
+
+    See Also
+    --------
+    save_pdh5
+        the reverse function
     """
     if show_progress:
         spinner = HaloAuto(f"dfloading '{filepath}'", spinner="dots")

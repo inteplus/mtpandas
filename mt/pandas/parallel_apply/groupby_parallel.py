@@ -18,10 +18,12 @@ from .utils import get_n_cores
 
 
 def _groupby_serial_func(data: List, func: Callable, pbar: bool = True) -> List:
+    """Applies `func` serially on every dataframe of the list `data`, returning a list."""
     _range = tqdm(data) if pbar else data
     return [func(x) for x in _range]
 
 def _get_multi_index_key(concat_res, key_data):
+    """Builds a (group key, original index) multi-index from the per-group results."""
     new_key_data = []
     for i in range(len(concat_res)):
         # An awesome (KEY_1, 1), (KEY_2, 2), ..., (KEY_N, K) kind of deal
@@ -34,6 +36,7 @@ def _get_multi_index_key(concat_res, key_data):
     return key_data
 
 def _chunk_df(df_grouped: DataFrameGroupBy, n_cores: int) -> List[List]:
+    """Splits the groups into chunks, returning the list of group keys and the list of chunks."""
     chunk_size = len(df_grouped) // n_cores + (len(df_grouped) % n_cores != 0)
     key_data = []
     chunked_data = []
@@ -52,6 +55,7 @@ def _chunk_df(df_grouped: DataFrameGroupBy, n_cores: int) -> List[List]:
 def _apply_on_groupby_parallel(df_grouped: DataFrameGroupBy, func: Callable, n_cores: int,
                               pbar: bool, keep_original_indexes: bool,
                               parallelism: str) -> Union[pd.DataFrame, pd.Series]:
+    """Runs `func` on every group of `df_grouped` with a worker pool and concatenates results."""
     assert parallelism in ("multiprocess", "multithread"), parallelism
     n_cores = get_n_cores(n_cores, df_grouped)
     if n_cores == 0:
@@ -88,7 +92,40 @@ def _apply_on_groupby_parallel(df_grouped: DataFrameGroupBy, func: Callable, n_c
 
 
 class GroupByParallel:
-    """GroupByParallel implementation"""
+    """Wraps a pandas groupby object to run apply in parallel.
+
+    The groups are split into `n_cores` chunks of consecutive groups, each chunk being processed
+    by one worker.
+
+    Parameters
+    ----------
+    df_grouped : pandas.core.groupby.DataFrameGroupBy
+        the grouped dataframe, e.g. ``df.groupby("col")``
+    n_cores : int
+        number of workers. -1 means the number of CPUs minus one, 0 means serial processing. It
+        is capped by the number of groups.
+    pbar : bool
+        whether or not to show a progress bar for each worker
+    keep_original_indexes : bool
+        when `func` returns dataframes, whether or not to build a (group key, original index)
+        multi-index for the output. Otherwise a fresh integer index is used. Slow if True.
+    parallelism : {'multiprocess', 'multithread'}
+        whether to use processes (functions must be picklable) or threads
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from mt.pandas.parallel_apply import GroupByParallel
+    >>> df = pd.DataFrame({"g": [0, 0, 1, 1], "a": [1, 2, 3, 4]})
+    >>> def total(d):
+    ...     return d["a"].sum()
+    >>> gp = GroupByParallel(df.groupby("g"), 2, pbar=False, parallelism="multithread")
+    >>> gp.apply(total)
+    g
+    0    3
+    1    7
+    dtype: int64
+    """
     def __init__(self, df_grouped: DataFrameGroupBy, n_cores: int, pbar: bool = True,
                  keep_original_indexes: bool = False, parallelism: str = "multiprocess"):
         self.df_grouped = df_grouped
@@ -98,6 +135,20 @@ class GroupByParallel:
         self.parallelism = parallelism
 
     def apply(self, func: Callable):
-        """Wrapper on top of regular df.groupby(col).apply(fn)"""
+        """Wrapper on top of regular df.groupby(col).apply(fn), run in parallel over the groups.
+
+        Parameters
+        ----------
+        func : function
+            function taking the dataframe of one group and returning a dataframe, a series or a
+            scalar
+
+        Returns
+        -------
+        pandas.DataFrame or pandas.Series
+            a dataframe if `func` returns series or dataframes, otherwise a series. The index is
+            the group keys (series results) or follows `keep_original_indexes` (dataframe
+            results).
+        """
         return _apply_on_groupby_parallel(self.df_grouped, func, self.n_cores, self.pbar,
                                           self.keep_original_indexes, self.parallelism)

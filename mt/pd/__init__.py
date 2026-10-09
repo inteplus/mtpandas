@@ -12,7 +12,16 @@ You do:
 
    from mt import pd
 
-It will import the pandas package plus the additional stuff implemented in :module:`mt.pandas`.
+It will import the pandas package plus the additional stuff implemented in :mod:`mt.pandas`.
+
+For example:
+
+.. code-block:: python
+
+   from mt import pd
+   df = pd.DataFrame({"a": [1, 2]})
+   pd.dfsave(df, "df.parquet")   # from mt.pandas
+
 
 Please see Python package `pandas`_ for more details.
 

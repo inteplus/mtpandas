@@ -1,4 +1,8 @@
-"""Extra functions to augment pandas.Series."""
+"""Extra functions to augment pandas.Series.
+
+Includes json conversion of series, categorical encoding, applying functions with progress bars
+or in parallel, and simple statistics. All public functions are importable from :mod:`mt.pandas`.
+"""
 
 import numpy as np
 from tqdm.auto import tqdm
@@ -36,6 +40,19 @@ def Series4json(obj):
     -----
     A json-like object contains 2 array_likes, each has length K. The first array represents the
     index array. The second array represents the value array.
+
+    See Also
+    --------
+    json4Series
+        the reverse function
+
+    Examples
+    --------
+    >>> from mt.pandas import Series4json
+    >>> Series4json([["x", "y"], [1, 2]])
+    x    1
+    y    2
+    dtype: int64
     """
     return pd.Series(index=obj[0], data=obj[1])
 
@@ -57,6 +74,18 @@ def json4Series(obj):
     -----
     A json-like object contains 2 array_likes, each has length K. The first array represents the
     index array. The second array represents the value array.
+
+    See Also
+    --------
+    Series4json
+        the reverse function
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from mt.pandas import json4Series
+    >>> json4Series(pd.Series([1, 2], index=["x", "y"]))
+    [['x', 'y'], [1, 2]]
     """
     return [obj.index.tolist(), obj.tolist()]
 
@@ -65,21 +94,24 @@ def to_categorical(series, value_list, missing_values="raise_exception", logger=
     """Converts a string series representing a categorical field into a zero-indexed categorical
     field and a one-hot field in json format.
 
+    The one-hot field holds numpy float arrays (not json strings).
+
     Parameters
     ----------
     series : pandas.Series
         an indexed series whose values are strings representing categories
     value_list : list
         list of accepted values to be converted into integers. The first value is converted into 0,
-        the second value into 2, and so on. The length of the list is the number of categories.
+        the second value into 1, and so on. The length of the list is the number of categories.
     missing_values : {'raise_exception', 'remove_and_warn', 'remove_in_silence'}
         policy for treating missing values upon encountered. If 'raise_exception' is specified,
         raise a ValueError when encountering the first missing value. If 'remove_and_warn' is
         specified, all missing values are warned to the logger, but records containing missing
         values are removed from output. If 'remove_in_silence' is specified, all records containing
-        missing values are removed from output in slience.
-    logger : logging.Logger to equivalent, optional
-        logger for debugging purposes
+        missing values are removed from output in silence. A "missing value" is any value that is
+        not in `value_list`.
+    logger : logging.Logger or equivalent, optional
+        logger for debugging purposes. Only used by the 'remove_and_warn' policy.
 
     Returns
     -------
@@ -93,7 +125,27 @@ def to_categorical(series, value_list, missing_values="raise_exception", logger=
     Raises
     ------
     ValueError
-        if something has gone wrong
+        if a missing value is encountered and the policy is 'raise_exception', or if the policy
+        is unknown (the latter only when there is a missing value)
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from mt.pandas import to_categorical
+    >>> s = pd.Series(["a", "b", "a"], index=[10, 11, 12])
+    >>> to_categorical(s, ["a", "b"])
+        cat_id     one_hot
+    10       0  [1.0, 0.0]
+    11       1  [0.0, 1.0]
+    12       0  [1.0, 0.0]
+    >>> s2 = pd.Series(["a", "c"])
+    >>> to_categorical(s2, ["a", "b"], missing_values="remove_in_silence")
+       cat_id     one_hot
+    0       0  [1.0, 0.0]
+    >>> to_categorical(s2, ["a", "b"])
+    Traceback (most recent call last):
+        ...
+    ValueError: Missing values detected: ['c']
     """
     df = series.to_frame("cat")  # to dataframe
 
@@ -146,16 +198,28 @@ def series_apply(
         a function to map each item of the series to something
     bar_unit : str, optional
         unit name to be passed to the progress bar. If None is provided, no bar is displayed.
+        Default is "it".
     logger : mt.logg.IndentedLoggerAdapter, optional
-        logger for debugging purposes. Only used if `bar_unit` is not None.
+        logger for debugging purposes. Only used if `bar_unit` is not None, to log the offending
+        item when `func` raises.
     func_uses_logger : bool
         whether or not the function takes `logger` as an additional keyword argument. Valid only if
-        `logger` is used.
+        `bar_unit` is not None.
 
     Returns
     -------
     pandas.Series
         output series by invoking `s.apply`. And a progress bar is shown if asked.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from mt.pandas import series_apply
+    >>> series_apply(pd.Series([1, 2, 3]), lambda x: x * 10, bar_unit=None)
+    0    10
+    1    20
+    2    30
+    dtype: int64
     """
 
     if bar_unit is None:
@@ -193,8 +257,8 @@ def series_parallel_apply(
 ) -> pd.Series:
     """Parallel-applies a function on every item of a pandas.Series, optionally with a progress bar.
 
-    The method wraps class:`mt.pandas.parallel_apply.SeriesParallel`. The progress bars are shown if
-    and only if a logger is provided.
+    The method wraps :class:`mt.pandas.parallel_apply.SeriesParallel`. The progress bars are shown
+    if and only if a logger is provided.
 
     Parameters
     ----------
@@ -205,13 +269,15 @@ def series_parallel_apply(
         processing.
     n_cores : int
         number of CPUs to use. Passed as-is to :class:`mt.pandas.parallel_apply.SeriesParallel`.
+        -1 (default) means all CPUs but one, 0 means no parallelism (a plain `s.apply`).
     parallelism : {'multithread', 'multiprocess'}
         multi-threading or multi-processing. Passed as-is to
         :class:`mt.pandas.parallel_apply.SeriesParallel`.
     logger : mt.logg.IndentedLoggerAdapter, optional
         logger for debugging purposes.
     scoped_msg : str, optional
-        whether or not to scoped_info the progress bars. Only valid if a logger is provided
+        message of a `logger.scoped_info` scope enclosing the progress bars. Only valid if a logger
+        is provided
 
     Returns
     -------
@@ -222,6 +288,16 @@ def series_parallel_apply(
     --------
     mt.pandas.parallel_apply.SeriesParallel
         the wrapped class for the parallel_apply purpose
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from mt.pandas import series_parallel_apply
+    >>> series_parallel_apply(pd.Series([-1, 2, -3]), abs, n_cores=2, parallelism="multithread")
+    0    1
+    1    2
+    2    3
+    dtype: int64
     """
 
     if logger:
@@ -249,7 +325,15 @@ def stats(s: pd.Series) -> dict:
     Returns
     -------
     dict
-        an output dictionary containing keys 'min', 'max', 'mean', 'std'
+        an output dictionary containing keys 'min', 'max', 'mean', 'std' (the sample standard
+        deviation, with ddof=1)
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from mt.pandas import stats
+    >>> stats(pd.Series([1.0, 2.0, 3.0]))
+    {'min': 1.0, 'max': 3.0, 'mean': 2.0, 'std': 1.0}
     """
 
     res = {
@@ -264,17 +348,28 @@ def stats(s: pd.Series) -> dict:
 def int_list(s: pd.Series, dropna: bool = False) -> tp.List[int]:
     """Extracts unique values from the series, converting them to integers.
 
+    Values are converted first (floats are truncated towards zero) and then de-duplicated, keeping
+    the order of first appearance.
+
     Parameters
     ----------
     s : pandas.Series
         a scalar series
     dropna : bool
-        whether or not to ignore null values
+        whether or not to ignore null values. Default is False, in which case a null value makes
+        the integer conversion raise an error.
 
     Returns
     -------
     list
         list of unique values of the series, converted into integers
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from mt.pandas import int_list
+    >>> int_list(pd.Series([3.0, 1.0, 3.0, None]), dropna=True)
+    [3, 1]
     """
 
     if dropna:
