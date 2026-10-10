@@ -24,8 +24,8 @@ setup(
         "pandas>=1.5",  # for dataframes, and we need custom dtypes
         "colorama",  # for mt.pandas.parallel_apply's logger (vendored from pandas_parallel_apply)
         #'pyarrow', # for converting to/from parquet. But TX2 doesn't need pyarrow.
-        "mtbase>=4.33.34",  # just updating
-        "mtopencv>=1.12.0",  # just updating
+        "mtbase>=4.34.2",  # just updating
+        "mtopencv>=1.12.1",  # just updating
         "tqdm",  # for drawing progress bars
         "tabview",  # for viewing spreadsheet-like files
     ],
